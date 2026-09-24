@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum AuthAuditAction {
+  REGISTERED
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  TOKEN_REFRESHED
+  TOKEN_REFRESH_FAILED
+  LOGOUT
+  PROFILE_UPDATED
+}
+
+model User {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  email                String?                @unique(map: "users_email_key") @db.VarChar(320)
+  phoneNumber          String?                @unique(map: "users_phone_number_key") @map("phone_number") @db.VarChar(32)
+  displayName          String                 @map("display_name") @db.VarChar(80)
+  status               UserStatus             @default(ACTIVE)
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  lastLoginAt          DateTime?              @map("last_login_at")
+  passwordCredential   UserPasswordCredential?
+  sessions             AuthSession[]
+  auditLogs            AuthAuditLog[]
+
+  @@index([status])
+  @@index([lastLoginAt])
+  @@map("users")
+}
+
+model UserPasswordCredential {
+  userId       String   @id @map("user_id") @db.Uuid
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_password_credentials")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique(map: "auth_sessions_refresh_token_hash_key") @map("refresh_token_hash") @db.VarChar(64)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  lastUsedAt       DateTime? @map("last_used_at")
+  ipAddress        String?   @map("ip_address") @db.Inet
+  userAgent        String?   @map("user_agent") @db.VarChar(512)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("auth_sessions")
+}
+
+model AuthAuditLog {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String?         @map("user_id") @db.Uuid
+  action     AuthAuditAction
+  identity   String?         @db.VarChar(320)
+  ipAddress  String?         @map("ip_address") @db.Inet
+  userAgent  String?         @map("user_agent") @db.VarChar(512)
+  metadata   Json?
+  createdAt  DateTime        @default(now()) @map("created_at")
+  user       User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("auth_audit_logs")
+}

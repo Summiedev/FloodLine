@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: floodline
+      POSTGRES_USER: floodline
+      POSTGRES_PASSWORD: floodline
+    ports:
+      - '5432:5432'
+    volumes:
+      - floodline-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U floodline -d floodline']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - floodline-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://floodline:floodline@postgres:5432/floodline?schema=public
+      REDIS_URL: redis://redis:6379
+      REDIS_PREFIX: floodline
+      CORS_ORIGINS: http://localhost:3000
+      SWAGGER_ENABLED: 'true'
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ['full']
+
+volumes:
+  floodline-postgres-data:
+  floodline-redis-data:
