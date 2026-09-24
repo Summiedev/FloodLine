@@ -1,6 +1,6 @@
 # FloodLine
 
-FloodLine is a flood-awareness, community-reporting, alerting, and safer-routing platform. The repository currently contains the backend foundation and authentication/user-account infrastructure. Flood incidents, saved places, alerts, notifications, and routing are reserved for later feature work.
+FloodLine is a flood-awareness, community-reporting, alerting, and safer-routing platform. The repository currently contains the backend foundation, authentication/user-account infrastructure, canonical flood incidents, and community flood-report submission. Saved places, alerts, notifications, and routing remain reserved for later feature work.
 
 ## Repository layout
 
@@ -26,13 +26,14 @@ Backend-specific architecture and implementation notes are in [`backend/README.m
 - JWT access tokens with rotating, revocable refresh sessions
 - User registration, login, logout, current-user, and basic display-name update endpoints
 - Authentication audit logging
+- Canonical flood-incident map queries with PostGIS radius and bounding-box filtering
+- Authenticated community flood-report submission with transactional incident association
+- Post-commit BullMQ job emission for newly created community reports
 
 ## Planned domain boundaries
 
 The backend includes module boundaries for the following future domains:
 
-- incidents
-- flood reports
 - report confirmations
 - official warnings
 - media
@@ -97,7 +98,7 @@ docker compose --profile full up --build
 
 ## Database changes
 
-Database changes must be represented by committed Prisma migrations. The current migrations enable PostGIS and create the authentication/user-account tables. Apply migrations locally with:
+Database changes must be represented by committed Prisma migrations. The current migrations enable PostGIS and create the authentication/user-account, canonical incident, and community flood-report tables. Apply migrations locally with:
 
 ```powershell
 npm run db:migrate

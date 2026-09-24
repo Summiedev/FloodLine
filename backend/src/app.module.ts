@@ -7,6 +7,7 @@ import {
   authConfig,
   databaseConfig,
   docsConfig,
+  floodReportConfig,
   rateLimitConfig,
   redisConfig,
 } from './config/configuration';
@@ -42,7 +43,15 @@ import { JobsModule } from './modules/jobs/jobs.module';
       isGlobal: true,
       cache: true,
       envFilePath: ['.env'],
-      load: [appConfig, authConfig, databaseConfig, docsConfig, rateLimitConfig, redisConfig],
+      load: [
+        appConfig,
+        authConfig,
+        databaseConfig,
+        docsConfig,
+        floodReportConfig,
+        rateLimitConfig,
+        redisConfig,
+      ],
       validate: validateEnvironment,
     }),
     ThrottlerModule.forRootAsync({

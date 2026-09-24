@@ -1,6 +1,6 @@
 # FloodLine backend
 
-This repository contains the production backend foundation for FloodLine. Authentication and basic user accounts are implemented; flood, alerting, routing, and community-reporting domains remain isolated module boundaries for subsequent work.
+This repository contains the production backend foundation for FloodLine. Authentication, basic user accounts, canonical flood-incident map queries, and authenticated community flood-report submission are implemented; alerting, routing, and community-impact workflows remain isolated module boundaries for subsequent work.
 
 ## Architecture
 
@@ -24,6 +24,32 @@ This repository contains the production backend foundation for FloodLine. Authen
 - `PATCH /api/v1/me` — currently updates `displayName` only.
 
 Authentication endpoints have a stricter rate limit than the global API limit. Refresh-token rotation is atomic, and revoking a session immediately invalidates access tokens tied to that session.
+
+## Community flood reports
+
+- `POST /api/v1/flood-reports` requires a bearer access token.
+- Reports are stored separately from canonical incidents in `flood_reports` with pending moderation status.
+- The server validates locations and observed data, derives community confidence, and never accepts a client confidence value.
+- A recent active incident of the same type within the configured radius is associated using PostGIS `ST_DWithin`; otherwise a new community incident is created.
+- Report creation and association run in one transaction. A post-commit `flood-report.created` BullMQ job is emitted for later processing.
+- Rapid duplicate submissions from the same user and nearby location are rejected. Association and duplicate thresholds are configured with the `REPORT_*` variables in `.env.example`.
+
+## Incident geospatial conventions
+
+- Coordinates are supplied and returned as `longitude, latitude` in that order.
+- Incident points use WGS 84, SRID `4326`, stored as PostGIS `geography(Point, 4326)`.
+- Radius distances are meters and use database-native `ST_DWithin`/`ST_Distance` operations.
+- Bounding boxes use `west`, `south`, `east`, and `north` longitude/latitude values and use `ST_Intersects` against an SRID `4326` envelope.
+- The optional affected geometry is reserved for future polygon support and is stored with SRID `4326`.
+
+Example map queries:
+
+```text
+GET /api/v1/incidents?longitude=3.42&latitude=6.43&radiusMeters=5000
+GET /api/v1/incidents?west=3.20&south=6.30&east=3.60&north=6.60
+```
+
+Flood-report coordinates use the same longitude-first WGS 84 convention. `occurredAt` describes when the user observed the condition; database-created timestamps remain server authoritative.
 
 ## Local development
 

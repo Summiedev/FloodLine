@@ -33,3 +33,10 @@ export const rateLimitConfig = registerAs('rateLimit', () => ({
 export const docsConfig = registerAs('docs', () => ({
   enabled: process.env.SWAGGER_ENABLED !== 'false',
 }));
+
+export const floodReportConfig = registerAs('floodReport', () => ({
+  associationRadiusMeters: Number(process.env.REPORT_ASSOCIATION_RADIUS_METERS ?? 500),
+  associationLookbackMinutes: Number(process.env.REPORT_ASSOCIATION_LOOKBACK_MINUTES ?? 120),
+  duplicateWindowSeconds: Number(process.env.REPORT_DUPLICATE_WINDOW_SECONDS ?? 60),
+  duplicateRadiusMeters: Number(process.env.REPORT_DUPLICATE_RADIUS_METERS ?? 50),
+}));
