@@ -29,14 +29,15 @@ Backend-specific architecture and implementation notes are in [`backend/README.m
 - Canonical flood-incident map queries with PostGIS radius and bounding-box filtering
 - Authenticated community flood-report submission with transactional incident association
 - Post-commit BullMQ job emission for newly created community reports
+- Authenticated community incident confirmations with cooldown and transaction-safe aggregates
+- Secure image media authorization and completion with provider abstraction
+- Safe available-report-photo summaries on incident detail responses
 
 ## Planned domain boundaries
 
 The backend includes module boundaries for the following future domains:
 
-- report confirmations
 - official warnings
-- media
 - saved places
 - alert preferences
 - notifications
@@ -98,7 +99,7 @@ docker compose --profile full up --build
 
 ## Database changes
 
-Database changes must be represented by committed Prisma migrations. The current migrations enable PostGIS and create the authentication/user-account, canonical incident, and community flood-report tables. Apply migrations locally with:
+Database changes must be represented by committed Prisma migrations. The current migrations enable PostGIS and create the authentication/user-account, canonical incident, community flood-report, media metadata, and incident-confirmation tables. Apply migrations locally with:
 
 ```powershell
 npm run db:migrate

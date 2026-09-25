@@ -5,6 +5,7 @@ import type {
   IncidentStatus,
   IncidentType,
 } from '@prisma/client';
+import type { IncidentPhotoSummary } from './incident-response.dto';
 
 export interface Coordinate {
   longitude: number;
@@ -76,4 +77,8 @@ export interface RawIncidentRow {
   createdAt: Date;
   updatedAt: Date;
   distanceMeters: number | null;
+  reportPhotos?: {
+    count: number;
+    items: IncidentPhotoSummary[];
+  };
 }

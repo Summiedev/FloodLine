@@ -34,7 +34,7 @@ const incident = {
   distanceMeters: null,
 };
 
-function createService() {
+function createService(mediaService?: { getAvailableIncidentPhotos: jest.Mock }) {
   const incidentsRepository = {
     findMany: jest.fn().mockResolvedValue({ rows: [incident], total: 1 }),
     findById: jest.fn().mockResolvedValue(incident),
@@ -42,7 +42,11 @@ function createService() {
     update: jest.fn(),
   };
   return {
-    service: new IncidentsService(incidentsRepository as never, new IncidentConfidencePolicy()),
+    service: new IncidentsService(
+      incidentsRepository as never,
+      new IncidentConfidencePolicy(),
+      mediaService as never,
+    ),
     incidentsRepository,
   };
 }
@@ -154,6 +158,30 @@ describe('IncidentsService', () => {
 
     harness.incidentsRepository.findById.mockResolvedValue(null);
     await expect(harness.service.findById(incident.id)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('includes safe available report-photo summaries on incident detail', async () => {
+    const mediaService = {
+      getAvailableIncidentPhotos: jest.fn().mockResolvedValue([
+        {
+          id: '10000000-0000-4000-8000-000000000020',
+          contentType: 'image/jpeg',
+          byteSize: 2_048,
+          width: 800,
+          height: 600,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          accessUrl: 'signed://read-url',
+        },
+      ]),
+    };
+    const harness = createService(mediaService);
+
+    await expect(harness.service.findById(incident.id)).resolves.toMatchObject({
+      reportPhotos: {
+        count: 1,
+        items: [{ id: '10000000-0000-4000-8000-000000000020', accessUrl: 'signed://read-url' }],
+      },
+    });
   });
 
   it('derives confidence from source type instead of accepting a caller score', async () => {

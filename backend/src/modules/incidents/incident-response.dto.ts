@@ -6,6 +6,17 @@ import type {
   IncidentType,
 } from '@prisma/client';
 
+export interface IncidentPhotoSummary {
+  id: string;
+  contentType: string;
+  byteSize: number;
+  width: number | null;
+  height: number | null;
+  createdAt: Date;
+  accessUrl?: string;
+  accessUrlExpiresAt?: Date;
+}
+
 export interface IncidentResponseDto {
   id: string;
   incidentType: IncidentType;
@@ -26,6 +37,10 @@ export interface IncidentResponseDto {
   sourceType: IncidentSourceType;
   confirmationCount: number;
   photoCount: number;
+  reportPhotos: {
+    count: number;
+    items: IncidentPhotoSummary[];
+  };
   firstReportedAt: Date;
   lastConfirmedAt: Date | null;
   resolvedAt: Date | null;

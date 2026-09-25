@@ -34,6 +34,15 @@ Authentication endpoints have a stricter rate limit than the global API limit. R
 - Report creation and association run in one transaction. A post-commit `flood-report.created` BullMQ job is emitted for later processing.
 - Rapid duplicate submissions from the same user and nearby location are rejected. Association and duplicate thresholds are configured with the `REPORT_*` variables in `.env.example`.
 
+## Media attachments
+
+- `POST /api/v1/media/uploads` authorizes an image upload for a report owned by the signed-in user.
+- `POST /api/v1/media/:id/complete` verifies the stored object's content type and byte size through the `StorageProvider`, then marks it available.
+- Supported MIME types are `image/jpeg`, `image/png`, and `image/webp`. File extensions are not accepted or used to generate keys.
+- Media binary content is kept outside PostgreSQL. The database stores metadata and a server-generated key such as `media/reports/{reportId}/{mediaId}`.
+- Public media responses omit uploader IDs and storage keys. Completed media receive expiring read URLs.
+- The default `LocalStorageProvider` is an in-memory local/test provider. An S3-compatible implementation can be added behind the same provider interface before setting `MEDIA_STORAGE_PROVIDER=s3`.
+
 ## Incident geospatial conventions
 
 - Coordinates are supplied and returned as `longitude, latitude` in that order.
@@ -50,6 +59,36 @@ GET /api/v1/incidents?west=3.20&south=6.30&east=3.60&north=6.60
 ```
 
 Flood-report coordinates use the same longitude-first WGS 84 convention. `occurredAt` describes when the user observed the condition; database-created timestamps remain server authoritative.
+
+## Community confirmations
+
+- `POST /api/v1/incidents/:incidentId/confirm` requires a bearer access token.
+- Each user has one confirmation record per incident. Repeated requests within the configured cooldown are idempotent; a later reconfirmation refreshes the confirmation timestamp without inflating the unique-user count.
+- The incident row is locked during confirmation, inactive or expired incidents are rejected, and confirmation aggregates are recalculated from database rows.
+- Confirmation counts and timestamps are never accepted from clients. A post-commit `incident-confirmation.created` BullMQ job is emitted for later confidence, community-impact, and incident-lifetime processing.
+- Configure the cooldown with `INCIDENT_CONFIRMATION_COOLDOWN_SECONDS` in `.env.example`.
+
+## Incident confidence and lifecycle
+
+- `IncidentConfidenceService` uses a deterministic, configurable evidence model. Positive signals include unique confirmations, recent reports and confirmations, distinct reporters, available photos, trusted-contributor weighting, and official-source/information weighting. Contradictory evidence, resolution reports, and incident age apply explicit penalties.
+- Scores are normalized to `0..1` and labeled `LOW`, `MEDIUM`, or `HIGH` using configured thresholds. Official incidents receive a configured source-confidence baseline before contradiction, resolution, and age penalties. The score expresses confidence in the evidence that an incident exists; it is not a guarantee of physical safety.
+- Recalculation is queued after report submission and confirmation. Moderation and official-information integrations can call `IncidentConfidenceService.requestRecalculation()` with an auditable reason and optional domain-event ID; the job is idempotent because it recomputes from database evidence and overwrites only derived fields.
+- Community incidents receive an active expiry window when reports are processed, and confirmations extend that window. Official incidents honor explicit `expiresAt` values. A repeatable BullMQ sweep marks due or stale active incidents as `EXPIRED`; the active predicate makes retries safe.
+- Current contributor trust, contradictory-report, and resolution-report registries are intentionally not fabricated. Their scoring inputs are present for the moderation/trust domains to populate later.
+
+## Official warnings
+
+- Official warnings are stored separately from community reports in `official_warnings`. `OfficialWarningProvider` adapters return normalized feed items; ingestion does not implicitly create or update canonical incidents.
+- Provider identity is `(authority, externalId)`, enforced by a database unique constraint. Re-ingesting unchanged data is idempotent; material updates emit `official-warning.changed`, while cancellation and expiry emit dedicated events.
+- `GET /api/v1/official-warnings` supports active/status, issued/effective/updated time, and affected-area radius filters. A PostGIS GiST index and `ST_DWithin` keep affected-area queries database-native.
+- Warning expiry is processed by a repeatable BullMQ job. API responses expose safe warning fields, source URLs, GeoJSON affected geometry, status, and `isActive` for UI copy such as authority-specific titles and publication times.
+
+## Saved places
+
+- Saved places are private to their owning user and support `HOME`, `WORK`, `SCHOOL`, `FAMILY`, and `CUSTOM` types.
+- `HOME`, `WORK`, and `SCHOOL` are unique per user through a partial database unique index. Family and custom places can repeat; custom places require a label.
+- CRUD endpoints are authenticated at `/api/v1/saved-places`. Ownership is applied in every repository query, so unrelated users receive not-found responses rather than another user's data.
+- `SavedPlacesService.findPlacesAffectedByIncident()` evaluates active saved places against both an incident point and optional affected geometry with PostGIS `ST_DWithin`; this is the integration point for the future alert engine.
 
 ## Local development
 

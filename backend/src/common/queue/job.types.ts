@@ -13,4 +13,5 @@ export interface EnqueueOptions {
   delayMs?: number;
   attempts?: number;
   backoffMs?: number;
+  repeatEveryMs?: number;
 }

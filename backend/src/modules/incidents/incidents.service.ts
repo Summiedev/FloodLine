@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { IncidentStatus, Prisma } from '@prisma/client';
 import { createPaginationMeta, PaginatedResponse } from '../../common/pagination/pagination.dto';
 import { ApplicationError } from '../../common/errors/application.error';
 import { ErrorCodes } from '../../common/errors/error-codes';
+import { MediaService } from '../media/media.service';
 import { IncidentConfidencePolicy } from './incident-confidence.policy';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { IncidentResponseDto } from './incident-response.dto';
@@ -21,6 +22,7 @@ export class IncidentsService {
   constructor(
     private readonly incidentsRepository: IncidentsRepository,
     private readonly confidencePolicy: IncidentConfidencePolicy,
+    @Optional() private readonly mediaService?: MediaService,
   ) {}
 
   async list(query: IncidentQueryDto): Promise<PaginatedResponse<IncidentResponseDto>> {
@@ -41,7 +43,12 @@ export class IncidentsService {
       throw new NotFoundException('Incident not found');
     }
 
-    return this.toResponse(incident);
+    const response = this.toResponse(incident);
+    if (this.mediaService) {
+      response.reportPhotos.items = await this.mediaService.getAvailableIncidentPhotos(id);
+      response.reportPhotos.count = response.reportPhotos.items.length;
+    }
+    return response;
   }
 
   /**
@@ -321,6 +328,7 @@ export class IncidentsService {
       sourceType: row.sourceType,
       confirmationCount: row.confirmationCount,
       photoCount: row.photoCount,
+      reportPhotos: row.reportPhotos ?? { count: 0, items: [] },
       firstReportedAt: row.firstReportedAt,
       lastConfirmedAt: row.lastConfirmedAt,
       resolvedAt: row.resolvedAt,

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { IncidentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import type { IncidentPhotoSummary } from './incident-response.dto';
 import type { ConfidenceValue, IncidentFilters, RawIncidentRow } from './incident.types';
 
 export interface IncidentCreateRecord {
@@ -180,7 +181,30 @@ export class IncidentsRepository {
       WHERE i."id" = ${id}::uuid
       LIMIT 1
     `);
-    return rows[0] ?? null;
+    const incident = rows[0];
+    if (!incident) {
+      return null;
+    }
+
+    const photos = await client.$queryRaw<IncidentPhotoSummary[]>(Prisma.sql`
+      SELECT
+        m.id::text AS "id",
+        m.content_type AS "contentType",
+        m.byte_size AS "byteSize",
+        m.width AS "width",
+        m.height AS "height",
+        m.created_at AS "createdAt"
+      FROM "media" m
+      INNER JOIN "flood_reports" fr ON fr.id = m.report_id
+      WHERE fr.incident_id = ${id}::uuid
+        AND m.status = CAST('AVAILABLE' AS "MediaStatus")
+      ORDER BY m.created_at ASC, m.id ASC
+    `);
+
+    return {
+      ...incident,
+      reportPhotos: { count: photos.length, items: photos },
+    };
   }
 
   private buildFilters(filters: IncidentFilters): Prisma.Sql[] {

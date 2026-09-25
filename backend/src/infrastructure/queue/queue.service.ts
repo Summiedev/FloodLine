@@ -26,6 +26,7 @@ export class QueueService {
       ...(options.backoffMs !== undefined
         ? { backoff: { type: 'exponential', delay: options.backoffMs } }
         : {}),
+      ...(options.repeatEveryMs !== undefined ? { repeat: { every: options.repeatEveryMs } } : {}),
     };
 
     return (await this.systemQueue.add(jobName, envelope, jobOptions)) as Job<

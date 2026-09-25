@@ -69,6 +69,28 @@ enum FloodReportWaterLevelCategory {
   ABOVE_VEHICLE_BONNET
 }
 
+enum MediaStatus {
+  PENDING
+  AVAILABLE
+  FAILED
+  REJECTED
+  DELETED
+}
+
+enum OfficialWarningStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum SavedPlaceType {
+  HOME
+  WORK
+  SCHOOL
+  FAMILY
+  CUSTOM
+}
+
 model User {
   id                   String                 @id @default(uuid()) @db.Uuid
   email                String?                @unique(map: "users_email_key") @db.VarChar(320)
@@ -82,6 +104,9 @@ model User {
   sessions             AuthSession[]
   auditLogs            AuthAuditLog[]
   floodReports         FloodReport[]
+  media                Media[]
+  incidentConfirmations IncidentConfirmation[]
+  savedPlaces          SavedPlace[]
 
   @@index([status])
   @@index([lastLoginAt])
@@ -153,11 +178,14 @@ model Incident {
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
   floodReports         FloodReport[]
+  confirmations        IncidentConfirmation[]
 
   @@index([incidentType])
   @@index([status])
   @@index([severity])
   @@index([updatedAt])
+  @@index([status, expiresAt])
+  @@index([sourceType, status, expiresAt])
   @@map("incidents")
 }
 
@@ -177,10 +205,88 @@ model FloodReport {
   sourceMetadata     Json?                         @map("source_metadata")
   reporter           User                          @relation(fields: [reporterUserId], references: [id], onDelete: Restrict)
   incident           Incident                      @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  media              Media[]
 
   @@index([reporterUserId, createdAt])
   @@index([incidentId, createdAt])
+  @@index([incidentId, moderationStatus, createdAt])
   @@index([reportType, createdAt])
   @@index([moderationStatus, createdAt])
   @@map("flood_reports")
+}
+
+model Media {
+  id             String      @id @default(uuid()) @db.Uuid
+  uploaderUserId String      @map("uploader_user_id") @db.Uuid
+  reportId       String      @map("report_id") @db.Uuid
+  storageKey     String      @unique(map: "media_storage_key_key") @map("storage_key") @db.VarChar(512)
+  contentType    String      @map("content_type") @db.VarChar(100)
+  byteSize       Int         @map("byte_size")
+  width          Int?
+  height         Int?
+  status         MediaStatus @default(PENDING)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  uploader       User        @relation(fields: [uploaderUserId], references: [id], onDelete: Restrict)
+  report         FloodReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+
+  @@index([reportId, status, createdAt])
+  @@index([uploaderUserId, createdAt])
+  @@map("media")
+}
+
+model IncidentConfirmation {
+  id                   String   @id @default(uuid()) @db.Uuid
+  incidentId           String   @map("incident_id") @db.Uuid
+  userId               String   @map("user_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+  lastConfirmedAt      DateTime? @map("last_confirmed_at")
+  verificationMetadata Json?    @map("verification_metadata")
+  incident             Incident @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([incidentId, userId], map: "incident_confirmations_incident_id_user_id_key")
+  @@index([incidentId, createdAt])
+  @@index([userId, createdAt])
+  @@map("incident_confirmations")
+}
+
+model OfficialWarning {
+  id                String                 @id @default(uuid()) @db.Uuid
+  authority         String                 @db.VarChar(120)
+  externalId        String                 @map("external_id") @db.VarChar(255)
+  title             String                 @db.VarChar(300)
+  description       String                 @db.Text
+  severity          IncidentSeverity
+  status            OfficialWarningStatus  @default(ACTIVE)
+  affectedGeometry  Unsupported("geometry(Geometry, 4326)") @map("affected_geometry")
+  issuedAt          DateTime               @map("issued_at")
+  effectiveAt       DateTime               @map("effective_at")
+  expiresAt         DateTime?              @map("expires_at")
+  sourceUrl         String?                @map("source_url") @db.VarChar(2048)
+  rawProviderMetadata Json?                @map("raw_provider_metadata")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  @@unique([authority, externalId], map: "official_warnings_authority_external_id_key")
+  @@index([status, effectiveAt, expiresAt])
+  @@index([authority, updatedAt])
+  @@map("official_warnings")
+}
+
+model SavedPlace {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  type              SavedPlaceType
+  customLabel       String?        @map("custom_label") @db.VarChar(120)
+  location          Unsupported("geography(Point, 4326)")
+  formattedAddress  String         @map("formatted_address") @db.VarChar(500)
+  providerPlaceId   String?        @map("provider_place_id") @db.VarChar(255)
+  isActive          Boolean        @default(true) @map("is_active")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive, updatedAt])
+  @@index([userId, type])
+  @@map("saved_places")
 }
