@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import {
   appConfig,
+  alertPreferenceConfig,
   authConfig,
   databaseConfig,
   docsConfig,
@@ -11,15 +12,25 @@ import {
   incidentConfidenceConfig,
   incidentConfirmationConfig,
   incidentLifecycleConfig,
+  metricsConfig,
   mediaConfig,
+  notificationConfig,
+  officialWarningConfig,
+  navigationConfig,
+  contributorConfig,
+  geocodingConfig,
   rateLimitConfig,
   redisConfig,
+  routeRecommendationConfig,
+  routeRiskConfig,
+  routingConfig,
 } from './config/configuration';
 import { validateEnvironment } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
+import { RedisThrottlerStorage } from './infrastructure/redis/redis-throttler.storage';
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
 import { StructuredLogger } from './common/logging/structured-logger.service';
 import { RequestIdMiddleware } from './common/request-context/request-id.middleware';
@@ -31,6 +42,7 @@ import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { MediaModule } from './modules/media/media.module';
+import { MapModule } from './modules/map/map.module';
 import { NavigationModule } from './modules/navigation/navigation.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OfficialWarningsModule } from './modules/official-warnings/official_warnings.module';
@@ -40,6 +52,7 @@ import { RoutingModule } from './modules/routing/routing.module';
 import { SavedPlacesModule } from './modules/saved-places/saved_places.module';
 import { UsersModule } from './modules/users/users.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { MetricsModule } from './common/metrics/metrics.module';
 
 @Module({
   imports: [
@@ -49,6 +62,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
       envFilePath: ['.env'],
       load: [
         appConfig,
+        alertPreferenceConfig,
         authConfig,
         databaseConfig,
         docsConfig,
@@ -56,21 +70,33 @@ import { JobsModule } from './modules/jobs/jobs.module';
         incidentConfidenceConfig,
         incidentConfirmationConfig,
         incidentLifecycleConfig,
+        metricsConfig,
         mediaConfig,
+        notificationConfig,
+        officialWarningConfig,
+        navigationConfig,
+        contributorConfig,
+        geocodingConfig,
         rateLimitConfig,
         redisConfig,
+        routeRecommendationConfig,
+        routeRiskConfig,
+        routingConfig,
       ],
       validate: validateEnvironment,
     }),
     ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => [
-        {
-          ttl: configService.getOrThrow<number>('rateLimit.ttlMs'),
-          limit: configService.getOrThrow<number>('rateLimit.limit'),
-        },
-      ],
+      imports: [ConfigModule, RedisModule],
+      inject: [ConfigService, RedisThrottlerStorage],
+      useFactory: (configService: ConfigService, storage: RedisThrottlerStorage) => ({
+        storage,
+        throttlers: [
+          {
+            ttl: configService.getOrThrow<number>('rateLimit.ttlMs'),
+            limit: configService.getOrThrow<number>('rateLimit.limit'),
+          },
+        ],
+      }),
     }),
     DatabaseModule,
     RedisModule,
@@ -84,6 +110,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
     ReportConfirmationsModule,
     OfficialWarningsModule,
     MediaModule,
+    MapModule,
     SavedPlacesModule,
     AlertPreferencesModule,
     NotificationsModule,
@@ -93,6 +120,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
     CommunityImpactModule,
     IntegrationsModule,
     JobsModule,
+    MetricsModule,
   ],
   providers: [
     StructuredLogger,

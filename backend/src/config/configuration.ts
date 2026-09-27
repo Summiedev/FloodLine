@@ -34,6 +34,11 @@ export const docsConfig = registerAs('docs', () => ({
   enabled: process.env.SWAGGER_ENABLED !== 'false',
 }));
 
+export const metricsConfig = registerAs('metrics', () => ({
+  enabled: process.env.METRICS_ENABLED !== 'false',
+  accessToken: process.env.METRICS_ACCESS_TOKEN,
+}));
+
 export const floodReportConfig = registerAs('floodReport', () => ({
   associationRadiusMeters: Number(process.env.REPORT_ASSOCIATION_RADIUS_METERS ?? 500),
   associationLookbackMinutes: Number(process.env.REPORT_ASSOCIATION_LOOKBACK_MINUTES ?? 120),
@@ -46,6 +51,8 @@ export const mediaConfig = registerAs('media', () => ({
   maxBytes: Number(process.env.MEDIA_MAX_BYTES ?? 10_000_000),
   uploadUrlTtlSeconds: Number(process.env.MEDIA_UPLOAD_URL_TTL_SECONDS ?? 900),
   accessUrlTtlSeconds: Number(process.env.MEDIA_ACCESS_URL_TTL_SECONDS ?? 900),
+  maxAttachmentsPerReport: Number(process.env.MEDIA_MAX_ATTACHMENTS_PER_REPORT ?? 10),
+  maxPhotosPerIncident: Number(process.env.MEDIA_MAX_PHOTOS_PER_INCIDENT ?? 100),
 }));
 
 export const incidentConfirmationConfig = registerAs('incidentConfirmation', () => ({
@@ -84,4 +91,71 @@ export const incidentLifecycleConfig = registerAs('incidentLifecycle', () => ({
   communityStaleAfterHours: Number(process.env.COMMUNITY_INCIDENT_STALE_AFTER_HOURS ?? 24),
   confirmationExtensionHours: Number(process.env.COMMUNITY_CONFIRMATION_EXTENSION_HOURS ?? 6),
   expirationSweepIntervalMs: Number(process.env.INCIDENT_EXPIRATION_SWEEP_INTERVAL_MS ?? 300_000),
+}));
+
+export const alertPreferenceConfig = registerAs('alertPreference', () => ({
+  minimumRadiusMeters: Number(process.env.ALERT_RADIUS_MIN_METERS ?? 500),
+  maximumRadiusMeters: Number(process.env.ALERT_RADIUS_MAX_METERS ?? 100_000),
+  defaultRadiusMeters: Number(process.env.ALERT_DEFAULT_RADIUS_METERS ?? 1_000),
+}));
+
+export const notificationConfig = registerAs('notification', () => ({
+  verificationSecret: process.env.NOTIFICATION_VERIFICATION_SECRET ?? process.env.JWT_ACCESS_SECRET,
+  deviceTokenEncryptionKey:
+    process.env.NOTIFICATION_DEVICE_TOKEN_ENCRYPTION_KEY ??
+    process.env.NOTIFICATION_VERIFICATION_SECRET ??
+    process.env.JWT_ACCESS_SECRET,
+  verificationCodeTtlSeconds: Number(process.env.NOTIFICATION_CODE_TTL_SECONDS ?? 600),
+  verificationResendCooldownSeconds: Number(process.env.NOTIFICATION_RESEND_COOLDOWN_SECONDS ?? 60),
+  verificationMaxAttempts: Number(process.env.NOTIFICATION_MAX_VERIFICATION_ATTEMPTS ?? 5),
+  evaluationBatchSize: Number(process.env.ALERT_EVALUATION_BATCH_SIZE ?? 250),
+}));
+
+export const routingConfig = registerAs('routing', () => ({
+  provider: process.env.ROUTING_PROVIDER ?? 'local',
+  timeoutMs: Number(process.env.ROUTING_TIMEOUT_MS ?? 8_000),
+  cacheTtlSeconds: Number(process.env.ROUTING_CACHE_TTL_SECONDS ?? 60),
+}));
+
+export const routeRiskConfig = registerAs('routeRisk', () => ({
+  corridorMeters: Number(process.env.ROUTE_RISK_CORRIDOR_METERS ?? 250),
+  recentWindowHours: Number(process.env.ROUTE_RISK_RECENCY_WINDOW_HOURS ?? 72),
+  lowThreshold: Number(process.env.ROUTE_RISK_LOW_THRESHOLD ?? 0.3),
+  highThreshold: Number(process.env.ROUTE_RISK_HIGH_THRESHOLD ?? 0.7),
+}));
+
+export const routeRecommendationConfig = registerAs('routeRecommendation', () => ({
+  riskWeight: Number(process.env.ROUTE_RECOMMENDATION_RISK_WEIGHT ?? 0.7),
+  durationWeight: Number(process.env.ROUTE_RECOMMENDATION_DURATION_WEIGHT ?? 0.2),
+  distanceWeight: Number(process.env.ROUTE_RECOMMENDATION_DISTANCE_WEIGHT ?? 0.1),
+  maximumDurationOverheadRatio: Number(
+    process.env.ROUTE_RECOMMENDATION_MAX_DURATION_OVERHEAD_RATIO ?? 0.5,
+  ),
+  minimumRiskImprovement: Number(process.env.ROUTE_RECOMMENDATION_MIN_RISK_IMPROVEMENT ?? 0.1),
+}));
+
+export const navigationConfig = registerAs('navigation', () => ({
+  sessionTtlMinutes: Number(process.env.NAVIGATION_SESSION_TTL_MINUTES ?? 120),
+  rerouteCooldownSeconds: Number(process.env.NAVIGATION_REROUTE_COOLDOWN_SECONDS ?? 300),
+  minimumRiskImprovement: Number(process.env.NAVIGATION_MIN_RISK_IMPROVEMENT ?? 0.1),
+  maximumDurationOverheadRatio: Number(process.env.NAVIGATION_MAX_DURATION_OVERHEAD_RATIO ?? 0.5),
+  evaluationBatchSize: Number(process.env.NAVIGATION_EVALUATION_BATCH_SIZE ?? 100),
+}));
+
+export const contributorConfig = registerAs('contributor', () => ({
+  adminUserIds: (process.env.CONTRIBUTOR_ADMIN_USER_IDS ?? '')
+    .split(',')
+    .map((userId) => userId.trim())
+    .filter(Boolean),
+}));
+
+export const geocodingConfig = registerAs('geocoding', () => ({
+  provider: process.env.GEOCODING_PROVIDER ?? 'local',
+  timeoutMs: Number(process.env.GEOCODING_TIMEOUT_MS ?? 5_000),
+  cacheTtlSeconds: Number(process.env.GEOCODING_CACHE_TTL_SECONDS ?? 300),
+}));
+
+export const officialWarningConfig = registerAs('officialWarning', () => ({
+  providerTimeoutMs: Number(process.env.OFFICIAL_WARNING_PROVIDER_TIMEOUT_MS ?? 10_000),
+  maxFeedItems: Number(process.env.OFFICIAL_WARNING_MAX_FEED_ITEMS ?? 1_000),
 }));

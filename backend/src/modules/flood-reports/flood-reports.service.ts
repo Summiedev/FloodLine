@@ -1,9 +1,11 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { ApplicationError } from '../../common/errors/application.error';
 import { ErrorCodes } from '../../common/errors/error-codes';
 import { StructuredLogger } from '../../common/logging/structured-logger.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
+import { assertSafeText } from '../../common/security/input-safety';
 import { PrismaService } from '../../database/prisma.service';
 import { QueueService } from '../../infrastructure/queue/queue.service';
 import { FLOOD_REPORT_CREATED_JOB } from './flood-reports.constants';
@@ -27,6 +29,7 @@ export class FloodReportsService {
     private readonly incidentAssociationService: IncidentAssociationService,
     private readonly queueService: QueueService,
     private readonly logger: StructuredLogger,
+    @Optional() private readonly metrics?: MetricsService,
   ) {
     this.duplicateWindowSeconds = configService.getOrThrow<number>(
       'floodReport.duplicateWindowSeconds',
@@ -98,6 +101,8 @@ export class FloodReportsService {
       );
     }
 
+    this.metrics?.increment('reports_submitted_total');
+
     return { reportId, incident };
   }
 
@@ -126,12 +131,14 @@ export class FloodReportsService {
         'locationName must contain between 1 and 200 characters',
       );
     }
+    assertSafeText(submission.locationName, 'locationName');
     if (!submission.description.trim() || submission.description.trim().length > 5_000) {
       throw new ApplicationError(
         ErrorCodes.ValidationError,
         'description must contain between 1 and 5000 characters',
       );
     }
+    assertSafeText(submission.description, 'description');
     if (submission.occurredAt && submission.occurredAt > new Date()) {
       throw new ApplicationError(ErrorCodes.ValidationError, 'occurredAt cannot be in the future');
     }

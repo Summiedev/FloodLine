@@ -27,7 +27,7 @@ export interface OfficialWarningFeedItem {
 
 export interface OfficialWarningProvider {
   readonly authority: string;
-  fetchWarnings(): Promise<OfficialWarningFeedItem[]>;
+  fetchWarnings(options?: { signal: AbortSignal }): Promise<OfficialWarningFeedItem[]>;
 }
 
 export interface OfficialWarningUpsertInput extends OfficialWarningFeedItem {

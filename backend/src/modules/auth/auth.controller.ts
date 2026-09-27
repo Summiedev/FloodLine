@@ -11,6 +11,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 
 const AUTH_RATE_LIMIT = { default: { limit: 10, ttl: 60_000 } };
+const SENSITIVE_AUTH_RATE_LIMIT = { default: { limit: 5, ttl: 60_000 } };
 
 @Controller({ path: 'auth', version: '1' })
 @Throttle(AUTH_RATE_LIMIT)
@@ -19,12 +20,14 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle(SENSITIVE_AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.CREATED)
   register(@Body() dto: RegisterDto, @Req() request: Request) {
     return this.authService.register(dto, requestMeta(request));
   }
 
   @Post('login')
+  @Throttle(SENSITIVE_AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto, @Req() request: Request) {
     return this.authService.login(dto, requestMeta(request));

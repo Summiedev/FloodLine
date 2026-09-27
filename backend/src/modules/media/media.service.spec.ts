@@ -101,6 +101,20 @@ describe('MediaService', () => {
     expect(harness.repository.createPending).not.toHaveBeenCalled();
   });
 
+  it('rejects a report when the repository enforces the attachment cap', async () => {
+    const harness = createService();
+    harness.repository.createPending.mockResolvedValue(null);
+
+    await expect(
+      harness.service.authorizeUpload(userId, {
+        reportId,
+        contentType: 'image/jpeg',
+        byteSize: 2_048,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(harness.storageProvider.authorizeUpload).not.toHaveBeenCalled();
+  });
+
   it('rejects unsupported image types and configured size-limit violations', async () => {
     const harness = createService();
 

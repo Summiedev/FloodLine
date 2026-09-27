@@ -12,6 +12,9 @@ interface LogEntry {
   metadata?: unknown;
 }
 
+const SENSITIVE_KEY =
+  /(password|passwd|token|authorization|cookie|secret|otp|verification|api.?key|storage.?key|device.?token|refresh)/i;
+
 @Injectable()
 export class StructuredLogger implements LoggerService {
   private readonly service = 'floodline-api';
@@ -63,8 +66,8 @@ export class StructuredLogger implements LoggerService {
       level,
       service: this.service,
       ...(context ? { context } : {}),
-      message: this.normalizeMessage(message),
-      ...(trace ? { trace } : {}),
+      message: this.sanitize(this.normalizeMessage(message)),
+      ...(trace ? { trace: this.redactString(trace) } : {}),
     };
 
     const serialized = JSON.stringify(entry);
@@ -83,5 +86,30 @@ export class StructuredLogger implements LoggerService {
     }
 
     return message;
+  }
+
+  private sanitize(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+    if (depth > 6) return '[redacted-depth]';
+    if (typeof value === 'string') return this.redactString(value);
+    if (value === null || typeof value !== 'object') return value;
+    if (seen.has(value)) return '[circular]';
+    seen.add(value);
+    if (value instanceof Date) return value.toISOString();
+    if (Array.isArray(value)) return value.map((item) => this.sanitize(item, depth + 1, seen));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        SENSITIVE_KEY.test(key) ? '[REDACTED]' : this.sanitize(item, depth + 1, seen),
+      ]),
+    );
+  }
+
+  private redactString(value: string): string {
+    return value
+      .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+      .replace(
+        /((?:access|refresh|id)[_-]?token|otp|code|secret|password)\s*[=:]\s*[^\s,;]+/gi,
+        '$1=[REDACTED]',
+      );
   }
 }

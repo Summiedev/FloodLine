@@ -25,6 +25,8 @@ export class MediaService {
   private readonly maxBytes: number;
   private readonly uploadUrlTtlSeconds: number;
   private readonly accessUrlTtlSeconds: number;
+  private readonly maxAttachmentsPerReport: number;
+  private readonly maxPhotosPerIncident: number;
 
   constructor(
     configService: ConfigService,
@@ -34,6 +36,9 @@ export class MediaService {
     this.maxBytes = configService.getOrThrow<number>('media.maxBytes');
     this.uploadUrlTtlSeconds = configService.getOrThrow<number>('media.uploadUrlTtlSeconds');
     this.accessUrlTtlSeconds = configService.getOrThrow<number>('media.accessUrlTtlSeconds');
+    this.maxAttachmentsPerReport =
+      configService.get?.<number>('media.maxAttachmentsPerReport') ?? 10;
+    this.maxPhotosPerIncident = configService.get?.<number>('media.maxPhotosPerIncident') ?? 100;
   }
 
   async authorizeUpload(
@@ -55,14 +60,20 @@ export class MediaService {
 
     const mediaId = randomUUID();
     const storageKey = `media/reports/${command.reportId}/${mediaId}`;
-    const media = await this.mediaRepository.createPending({
-      id: mediaId,
-      uploaderUserId,
-      reportId: command.reportId,
-      storageKey,
-      contentType,
-      byteSize: command.byteSize,
-    });
+    const media = await this.mediaRepository.createPending(
+      {
+        id: mediaId,
+        uploaderUserId,
+        reportId: command.reportId,
+        storageKey,
+        contentType,
+        byteSize: command.byteSize,
+      },
+      this.maxAttachmentsPerReport,
+    );
+    if (!media) {
+      throw new ConflictException('The flood report has reached its media attachment limit');
+    }
 
     try {
       const upload = await this.storageProvider.authorizeUpload({
@@ -129,7 +140,10 @@ export class MediaService {
 
   async getAvailableIncidentPhotos(incidentId: string): Promise<MediaPhotoSummary[]> {
     this.assertUuid(incidentId, 'incidentId');
-    const media = await this.mediaRepository.findAvailableByIncident(incidentId);
+    const media = await this.mediaRepository.findAvailableByIncident(
+      incidentId,
+      this.maxPhotosPerIncident,
+    );
 
     return Promise.all(
       media.map(async (item) => {

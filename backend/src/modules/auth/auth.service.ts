@@ -17,6 +17,7 @@ import { normalizeEmail } from './identity-normalization';
 import { PasswordHasher } from './password-hasher.service';
 import { toPublicUser } from './public-user.mapper';
 import { PrismaService } from '../../database/prisma.service';
+import { assertSafeText } from '../../common/security/input-safety';
 
 interface SessionIssue {
   sessionId: string;
@@ -44,6 +45,7 @@ export class AuthService {
     const email = normalizeEmail(dto.email);
     const passwordHash = await this.passwordHasher.hash(dto.password);
     const displayName = dto.displayName.trim();
+    assertSafeText(displayName, 'displayName');
 
     try {
       const result = await this.prisma.$transaction(async (transaction) => {
@@ -219,6 +221,7 @@ export class AuthService {
             phoneNumber: true,
             displayName: true,
             status: true,
+            contributorStatus: { select: { status: true } },
             createdAt: true,
             updatedAt: true,
             lastLoginAt: true,

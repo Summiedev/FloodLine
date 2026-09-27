@@ -3,6 +3,7 @@ import { AuthAuditAction } from '@prisma/client';
 import type { RequestMeta, PublicUser } from '../auth/auth.types';
 import { toPublicUser } from '../auth/public-user.mapper';
 import { PrismaService } from '../../database/prisma.service';
+import { assertSafeText } from '../../common/security/input-safety';
 import { UpdateBasicProfileDto } from './dto/update-basic-profile.dto';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class UsersService {
     dto: UpdateBasicProfileDto,
     meta: RequestMeta,
   ): Promise<PublicUser> {
+    assertSafeText(dto.displayName, 'displayName');
     const updatedUser = await this.prisma.$transaction(async (transaction) => {
       const user = await transaction.user.update({
         where: { id: userId },

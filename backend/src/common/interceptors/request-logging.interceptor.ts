@@ -8,11 +8,15 @@ import {
 import { Request, Response } from 'express';
 import { Observable, tap } from 'rxjs';
 import { StructuredLogger } from '../logging/structured-logger.service';
+import { MetricsService } from '../metrics/metrics.service';
 import { RequestWithId } from '../request-context/request-id.middleware';
 
 @Injectable()
 export class RequestLoggingInterceptor implements NestInterceptor {
-  constructor(private readonly logger: StructuredLogger) {}
+  constructor(
+    private readonly logger: StructuredLogger,
+    private readonly metrics: MetricsService,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
@@ -40,13 +44,30 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     startedAt: number,
     errorStatus?: number,
   ): void {
+    const statusCode = errorStatus ?? response.statusCode;
+    const durationMs = Date.now() - startedAt;
+    const requestShape = request as unknown as {
+      route?: { path?: unknown };
+      path?: unknown;
+    };
+    const routePath =
+      typeof requestShape.route?.path === 'string'
+        ? requestShape.route.path
+        : typeof requestShape.path === 'string'
+          ? requestShape.path
+          : '[unknown]';
+    this.metrics.increment('http_requests_total', {
+      method: request.method,
+      status_class: `${Math.floor(statusCode / 100)}xx`,
+    });
+    this.metrics.observe('http_request_duration_ms', durationMs, { method: request.method });
     this.logger.log(
       {
         requestId: (request as RequestWithId).requestId,
         method: request.method,
-        path: request.originalUrl,
-        statusCode: errorStatus ?? response.statusCode,
-        durationMs: Date.now() - startedAt,
+        path: routePath,
+        statusCode,
+        durationMs,
       },
       'HTTP',
     );

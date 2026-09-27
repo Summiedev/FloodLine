@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { IncidentConfidenceEvidence } from './incident-confidence.types';
+import {
+  CONTRIBUTOR_TRUST_PROVIDER,
+  type ContributorTrustProvider,
+} from '../profiles/contributor-status.types';
 
 interface ConfidenceEvidenceRow {
   sourceType: string;
@@ -17,6 +21,12 @@ export type ConfidenceTransaction = Prisma.TransactionClient | PrismaService;
 
 @Injectable()
 export class IncidentConfidenceRepository {
+  constructor(
+    @Optional()
+    @Inject(CONTRIBUTOR_TRUST_PROVIDER)
+    private readonly contributorTrustProvider?: ContributorTrustProvider,
+  ) {}
+
   async getEvidence(
     database: ConfidenceTransaction,
     incidentId: string,
@@ -58,6 +68,13 @@ export class IncidentConfidenceRepository {
       return null;
     }
 
+    const trustedContributorWeight = this.contributorTrustProvider
+      ? await this.contributorTrustProvider.getIncidentTrustedContributorWeight(
+          database,
+          incidentId,
+        )
+      : 0;
+
     return {
       sourceType: row.sourceType as IncidentConfidenceEvidence['sourceType'],
       uniqueConfirmations: this.toNumber(row.uniqueConfirmations),
@@ -67,7 +84,7 @@ export class IncidentConfidenceRepository {
       photoEvidence: this.toNumber(row.photoEvidence),
       // The current schema has no contributor trust registry yet. The scoring
       // input remains explicit so a later trust domain can supply this signal.
-      trustedContributorWeight: 0,
+      trustedContributorWeight,
       officialInformationWeight: row.sourceType === 'OFFICIAL' ? 1 : 0,
       contradictoryReports: 0,
       resolutionReports: 0,

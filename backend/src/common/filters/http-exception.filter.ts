@@ -54,6 +54,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     details?: unknown;
   } {
     if (exception instanceof ApplicationError) {
+      if (Number(exception.status) >= 500) {
+        return {
+          status: exception.status,
+          code: ErrorCodes.InternalServerError,
+          message: 'Internal server error',
+        };
+      }
       return {
         status: exception.status,
         code: exception.code,
@@ -64,6 +71,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
+      if (status >= 500) {
+        return {
+          status,
+          code: ErrorCodes.InternalServerError,
+          message: 'Internal server error',
+        };
+      }
       const exceptionResponse = exception.getResponse();
       if (typeof exceptionResponse === 'string') {
         return { status, code: this.codeForStatus(status), message: exceptionResponse };

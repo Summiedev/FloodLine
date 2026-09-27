@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { StructuredLogger } from './common/logging/structured-logger.service';
+import { json, urlencoded } from 'express';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -13,6 +14,12 @@ async function bootstrap(): Promise<void> {
   const logger = app.get(StructuredLogger);
 
   app.useLogger(logger);
+  const httpServer = app.getHttpAdapter().getInstance() as unknown as {
+    disable: (setting: string) => void;
+  };
+  httpServer.disable('x-powered-by');
+  app.use(json({ limit: '256kb' }));
+  app.use(urlencoded({ extended: false, limit: '64kb' }));
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI });
   app.enableShutdownHooks(['SIGINT', 'SIGTERM']);

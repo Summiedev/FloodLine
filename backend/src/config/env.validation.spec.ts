@@ -18,4 +18,15 @@ describe('validateEnvironment', () => {
   it('rejects a configuration without critical dependency URLs', () => {
     expect(() => validateEnvironment({})).toThrow('Environment validation failed');
   });
+
+  it('rejects wildcard CORS origins because credentials are enabled', () => {
+    expect(() =>
+      validateEnvironment({
+        DATABASE_URL: 'postgresql://floodline:floodline@localhost:5432/floodline',
+        REDIS_URL: 'redis://localhost:6379',
+        JWT_ACCESS_SECRET: 'local-development-secret-change-me-please-32',
+        CORS_ORIGINS: '*',
+      }),
+    ).toThrow('CORS_ORIGINS must contain explicit origins');
+  });
 });

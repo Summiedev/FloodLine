@@ -1,4 +1,4 @@
-import type { UserStatus } from '@prisma/client';
+import type { ContributorStatus, UserStatus } from '@prisma/client';
 
 export interface RequestMeta {
   ipAddress?: string;
@@ -11,6 +11,7 @@ export interface PublicUser {
   phoneNumber: string | null;
   displayName: string;
   status: UserStatus;
+  contributorStatus: ContributorStatus;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date | null;

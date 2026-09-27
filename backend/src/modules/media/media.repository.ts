@@ -33,24 +33,39 @@ export class MediaRepository {
     return report?.reporterUserId ?? null;
   }
 
-  async createPending(record: {
-    id: string;
-    uploaderUserId: string;
-    reportId: string;
-    storageKey: string;
-    contentType: string;
-    byteSize: number;
-  }): Promise<MediaRecord> {
-    return this.prisma.media.create({
-      data: {
-        id: record.id,
-        uploaderUserId: record.uploaderUserId,
-        reportId: record.reportId,
-        storageKey: record.storageKey,
-        contentType: record.contentType,
-        byteSize: record.byteSize,
-      },
-      select: this.selectFields(),
+  async createPending(
+    record: {
+      id: string;
+      uploaderUserId: string;
+      reportId: string;
+      storageKey: string;
+      contentType: string;
+      byteSize: number;
+    },
+    maxAttachments: number,
+  ): Promise<MediaRecord | null> {
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(Prisma.sql`
+        SELECT pg_advisory_xact_lock(hashtext(${record.reportId}))
+      `);
+      const count = await transaction.media.count({
+        where: {
+          reportId: record.reportId,
+          status: { in: [MediaStatus.PENDING, MediaStatus.AVAILABLE] },
+        },
+      });
+      if (count >= maxAttachments) return null;
+      return transaction.media.create({
+        data: {
+          id: record.id,
+          uploaderUserId: record.uploaderUserId,
+          reportId: record.reportId,
+          storageKey: record.storageKey,
+          contentType: record.contentType,
+          byteSize: record.byteSize,
+        },
+        select: this.selectFields(),
+      });
     });
   }
 
@@ -61,13 +76,14 @@ export class MediaRepository {
     });
   }
 
-  async findAvailableByIncident(incidentId: string): Promise<MediaRecord[]> {
+  async findAvailableByIncident(incidentId: string, limit: number): Promise<MediaRecord[]> {
     return this.prisma.media.findMany({
       where: {
         status: MediaStatus.AVAILABLE,
         report: { incident: { id: incidentId } },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit,
       select: this.selectFields(),
     });
   }

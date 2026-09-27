@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MediaModule } from '../media/media.module';
+import { ProfilesModule } from '../profiles/profiles.module';
 import { IncidentsController } from './incidents.controller';
 import { IncidentConfidenceRepository } from './incident-confidence.repository';
 import { IncidentConfidenceService } from './incident-confidence.service';
@@ -9,7 +10,7 @@ import { IncidentsRepository } from './incidents.repository';
 import { IncidentsService } from './incidents.service';
 
 @Module({
-  imports: [MediaModule],
+  imports: [MediaModule, ProfilesModule],
   controllers: [IncidentsController],
   providers: [
     IncidentsRepository,

@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { IncidentSeverity, OfficialWarningStatus } from '@prisma/client';
 import { ApplicationError } from '../../common/errors/application.error';
 import { ErrorCodes } from '../../common/errors/error-codes';
 import { createPaginationMeta } from '../../common/pagination/pagination.dto';
 import { StructuredLogger } from '../../common/logging/structured-logger.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
+import { assertSafeText } from '../../common/security/input-safety';
 import { PrismaService } from '../../database/prisma.service';
 import { QueueService } from '../../infrastructure/queue/queue.service';
 import {
@@ -15,6 +18,7 @@ import {
 import { OfficialWarningsRepository } from './official-warnings.repository';
 import type {
   OfficialWarningFilters,
+  OfficialWarningFeedItem,
   OfficialWarningGeometry,
   OfficialWarningListResponse,
   OfficialWarningProvider,
@@ -33,12 +37,21 @@ export interface OfficialWarningEventPayload {
 
 @Injectable()
 export class OfficialWarningsService {
+  private readonly providerTimeoutMs: number;
+  private readonly maxFeedItems: number;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly repository: OfficialWarningsRepository,
     private readonly queueService: QueueService,
     private readonly logger: StructuredLogger,
-  ) {}
+    @Optional() private readonly metrics?: MetricsService,
+    @Optional() configService?: ConfigService,
+  ) {
+    this.providerTimeoutMs =
+      configService?.get<number>('officialWarning.providerTimeoutMs') ?? 10_000;
+    this.maxFeedItems = configService?.get<number>('officialWarning.maxFeedItems') ?? 1_000;
+  }
 
   async list(filters: OfficialWarningFilters): Promise<OfficialWarningListResponse> {
     const result = await this.repository.findMany(filters);
@@ -59,12 +72,47 @@ export class OfficialWarningsService {
 
   async ingest(provider: OfficialWarningProvider): Promise<OfficialWarningResponse[]> {
     this.validateAuthority(provider.authority);
-    const feedItems = await provider.fetchWarnings();
+    const feedItems = await this.fetchProviderWarnings(provider);
+    if (feedItems.length > this.maxFeedItems) {
+      throw new ApplicationError(
+        ErrorCodes.ValidationError,
+        'Official warning feed contains too many items',
+      );
+    }
     const results: OfficialWarningResponse[] = [];
     for (const item of feedItems) {
       results.push((await this.upsert({ ...item, authority: provider.authority })).warning);
     }
     return results;
+  }
+
+  private async fetchProviderWarnings(
+    provider: OfficialWarningProvider,
+  ): Promise<OfficialWarningFeedItem[]> {
+    const controller = new AbortController();
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+      const providerPromise = provider.fetchWarnings({ signal: controller.signal });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          controller.abort();
+          reject(new Error('Official warning provider timed out'));
+        }, this.providerTimeoutMs);
+      });
+      const result = await Promise.race([providerPromise, timeoutPromise]);
+      if (!Array.isArray(result)) {
+        throw new Error('Official warning provider returned an invalid feed');
+      }
+      return result;
+    } catch {
+      throw new ApplicationError(
+        ErrorCodes.DependencyUnavailable,
+        'Official warning provider is temporarily unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
   }
 
   async upsert(input: OfficialWarningUpsertInput): Promise<{
@@ -97,6 +145,9 @@ export class OfficialWarningsService {
     });
 
     if (result.created || result.materiallyChanged) {
+      this.metrics?.increment('official_warning_changes_total', {
+        change: result.created ? 'created' : 'updated',
+      });
       await this.emitChangeEvents(result);
     }
 
@@ -268,7 +319,13 @@ export class OfficialWarningsService {
       throw new ApplicationError(ErrorCodes.ValidationError, 'affectedGeometry is too large');
     }
     let coordinateCount = 0;
-    const visit = (value: unknown): void => {
+    const visit = (value: unknown, depth: number): void => {
+      if (depth > 20) {
+        throw new ApplicationError(
+          ErrorCodes.ValidationError,
+          'affectedGeometry nesting is too deep',
+        );
+      }
       if (!Array.isArray(value)) {
         throw new ApplicationError(
           ErrorCodes.ValidationError,
@@ -291,11 +348,17 @@ export class OfficialWarningsService {
           );
         }
         coordinateCount += 1;
+        if (coordinateCount > 50_000) {
+          throw new ApplicationError(
+            ErrorCodes.ValidationError,
+            'affectedGeometry contains too many coordinates',
+          );
+        }
         return;
       }
-      for (const child of value) visit(child);
+      for (const child of value) visit(child, depth + 1);
     };
-    visit(geometry.coordinates);
+    visit(geometry.coordinates, 0);
     if (coordinateCount === 0) {
       throw new ApplicationError(
         ErrorCodes.ValidationError,
@@ -315,6 +378,7 @@ export class OfficialWarningsService {
         `${field} must contain between 1 and ${maxLength} characters`,
       );
     }
+    assertSafeText(value, field);
   }
 
   private validateDate(value: Date, field: string): void {

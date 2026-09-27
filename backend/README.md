@@ -1,6 +1,6 @@
 # FloodLine backend
 
-This repository contains the production backend foundation for FloodLine. Authentication, basic user accounts, canonical flood-incident map queries, and authenticated community flood-report submission are implemented; alerting, routing, and community-impact workflows remain isolated module boundaries for subsequent work.
+This repository contains the production backend foundation for FloodLine. Authentication, basic user accounts, flood incidents, community reports, notification infrastructure, map feeds, route previews with reported flood-risk evaluation, safer-route selection, and active-navigation monitoring are implemented.
 
 ## Architecture
 
@@ -90,6 +90,13 @@ Flood-report coordinates use the same longitude-first WGS 84 convention. `occurr
 - CRUD endpoints are authenticated at `/api/v1/saved-places`. Ownership is applied in every repository query, so unrelated users receive not-found responses rather than another user's data.
 - `SavedPlacesService.findPlacesAffectedByIncident()` evaluates active saved places against both an incident point and optional affected geometry with PostGIS `ST_DWithin`; this is the integration point for the future alert engine.
 
+## Alert preferences
+
+- `GET /api/v1/alert-preferences` and `PATCH /api/v1/alert-preferences` manage one default profile per user.
+- Radius is stored as an integer number of meters, not a fixed option enum. Product bounds and the default are configured with `ALERT_RADIUS_MIN_METERS`, `ALERT_RADIUS_MAX_METERS`, and `ALERT_DEFAULT_RADIUS_METERS`.
+- Supported alert types are severe flooding, moderate flooding, blocked roads, and blocked drains. Severe flooding is always added server-side and is also protected by a database check constraint.
+- The persistence model has an optional saved-place scope and partial uniqueness indexes so per-place overrides can be added without changing the default-profile API.
+
 ## Local development
 
 1. Copy `.env.example` to `.env`.
@@ -133,3 +140,131 @@ docker compose --profile full up --build
 ## Environment variables
 
 See `.env.example`. Secrets are intentionally omitted. Production deployments must provide managed PostgreSQL and Redis credentials through the deployment environment or secret manager.
+
+## Notification channels
+
+Notification destinations and preferences are user-owned. The available channels are `APP_PUSH`,
+`SMS`, and `WHATSAPP`:
+
+- `GET/PATCH /api/v1/notification-preferences`
+- `POST/DELETE /api/v1/devices` and `/api/v1/devices/:id`
+- `POST /api/v1/phone/verification/start`
+- `POST /api/v1/phone/verification/confirm`
+- `POST /api/v1/whatsapp/connection/start`
+- `POST /api/v1/whatsapp/connection/confirm`
+- `DELETE /api/v1/whatsapp/connection`
+
+Phone numbers must be supplied in E.164 form and are stored only on the messaging destination.
+Verification codes are HMAC-hashed, expire, are attempt-limited, and are never returned by the API.
+The development adapters log masked destinations; replace the provider bindings in the notifications
+module with production adapters without changing domain services.
+
+## Alert evaluation and delivery
+
+Active incidents and official warnings enqueue alert-evaluation jobs. PostgreSQL/PostGIS selects one
+closest matching saved place per user per batch, applying the saved-place radius, incident type,
+active-state, and verified-channel predicates. Notification dedupe keys are unique in the database;
+severity/type trigger keys permit a materially higher severity to escalate once without repeatedly
+spamming a user about an unchanged event.
+
+Delivery is asynchronous. Each channel has a `NotificationDelivery` record, BullMQ retries transient
+provider failures, and final failures are marked `DEAD_LETTER` for operational inspection. Incident
+creation is not blocked by provider delivery.
+
+## Map feed
+
+Use `GET /api/v1/map/incidents?north=...&south=...&east=...&west=...` for a bounded marker feed.
+Coordinates are WGS84 longitude/latitude, with longitude first. `updatedSince` supports incremental
+refresh and terminal-state changes are returned when they changed after that cursor so clients can
+remove stale markers. The response is limited to 500 markers, returns `clustered`, `clusterId`, and
+`pointCount` fields for a client-clustering-compatible contract, and does not include descriptions,
+reports, or media. `west > east` is treated as an international-date-line crossing; equal west/east
+is rejected. The query uses the incident location GiST index and database-side envelope predicates.
+The critical query should be checked in each deployment with `EXPLAIN (ANALYZE, BUFFERS)`; the
+geography `&&` prefilter is intentional so the GiST index narrows candidates before exact
+`ST_Intersects` evaluation.
+
+The feed intentionally does not cache by default: viewport bounds, filters, and incremental cursors
+are materially significant cache keys, and correctness is preferred until a bounded Redis cache is
+introduced with all of those dimensions included.
+
+## Routing and reported flood risk
+
+`POST /api/v1/routes/preview` accepts an origin, destination, optional waypoints, and one of
+`DRIVING`, `TRANSIT`, `CYCLING`, or `WALKING`. Coordinates are WGS84 objects with longitude first;
+distances are meters and durations are seconds. The response contains normalized route candidates
+and a deterministic risk summary for each candidate. Provider response structures and credentials
+are not exposed.
+
+The configured default is `ROUTING_PROVIDER=local`, a development-only straight-line provider that
+exists so local development and tests do not require third-party credentials. It is not suitable for
+turn-by-turn navigation. A production road-network adapter implements `RoutingProvider` and is
+bound through the `ROUTING_PROVIDER` token in `RoutingModule`.
+
+Risk evaluation uses PostGIS to find active, non-expired incidents within the configured
+`ROUTE_RISK_CORRIDOR_METERS` corridor around the complete route geometry. It weights severity,
+confidence, recency, official-source evidence, and distance from the corridor using a transparent
+bounded formula. It reports `Lower reported flood risk`, `Flood reports detected`, or `No currently
+known reports`; it never claims a route is absolutely safe. Route previews compare available
+alternatives with configurable risk, duration, and distance weights, and return the selected route
+plus `recommendationReason` and objective `avoidedIncidentCount` values.
+
+Route previews are cached briefly in Redis using a hash of the complete request, including waypoints
+and travel mode. Provider timeout/failure metrics are emitted as structured application logs with
+provider name, latency, cache state, and route count. External provider failures are returned as
+stable dependency errors rather than leaking vendor response bodies.
+
+Active navigation sessions are private to their owner at `/api/v1/navigation/sessions`. Incident
+events enqueue batched PostGIS route-corridor checks; eligible sessions are rerouted only when the
+reported risk improvement and duration-overhead policy are met. Session/incident uniqueness,
+cooldown, and row locking make repeated events idempotent. Route-update delivery is abstracted so
+WebSocket/SSE plus background push can replace the local logging transport later.
+
+## Location search
+
+The normalized location API is provider-neutral:
+
+- `GET /api/v1/locations/search?q=...`
+- `GET /api/v1/locations/:providerPlaceId`
+- `GET /api/v1/locations/reverse?lat=...&lng=...`
+
+Responses use WGS84 coordinates as `{ longitude, latitude }`, plus a provider place ID,
+display name, formatted address, and optional locality metadata. Provider API keys and raw provider
+objects are never returned. Search calls are rate-limited and briefly cached in Redis; frontend
+debouncing remains a client responsibility. The current local adapter intentionally returns no
+external provider data until a production `GeocodingProvider` is bound. Search is not implicitly
+biased by user location; any future viewport bias must be explicit in the request contract.
+
+## Community impact and contributor status
+
+`GET /api/v1/me/community-impact` derives metrics from source-of-truth reports, confirmations, and
+alert-engine notification records. Rejected reports are excluded, confirmations are counted from
+valid confirmation records, and recipients are deduplicated by incident and user. Clients cannot
+write or submit these counters.
+
+Authenticated profiles include a server-owned `contributorStatus` of `STANDARD`, `VERIFIED`, or
+`SUSPENDED`. Status changes require an administrator configured through
+`CONTRIBUTOR_ADMIN_USER_IDS` and are recorded in `contributor_status_audits`; users cannot promote
+themselves. Verified-contributor weighting is exposed to the confidence engine through a provider
+interface and remains controlled by backend scoring rules.
+
+## In-app alert history
+
+The alert engine creates the in-app records returned by:
+
+- `GET /api/v1/alerts`
+- `GET /api/v1/alerts/:id`
+- `POST /api/v1/alerts/:id/read`
+- `POST /api/v1/alerts/read-all`
+
+Alert history is private to the authenticated user, paginated, and supports `unread`, `severity`,
+and `category` filters. Reading is idempotent. External delivery state is deliberately separate
+from `readAt`, so an in-app alert remains available even when SMS, WhatsApp, or push delivery fails.
+
+## Security and operations
+
+Security boundaries, abuse controls, deployment assumptions, and residual risks are documented in
+[`SECURITY.md`](./SECURITY.md). Operational dashboards, alerts, triage runbooks, and release checks
+are in [`docs/OPERATIONS.md`](./docs/OPERATIONS.md). The protected operational metrics endpoint is
+`GET /api/v1/metrics`; set `METRICS_ACCESS_TOKEN` in production and keep Swagger access-controlled
+or disabled there.

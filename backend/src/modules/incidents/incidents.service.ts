@@ -5,6 +5,12 @@ import { createPaginationMeta, PaginatedResponse } from '../../common/pagination
 import { ApplicationError } from '../../common/errors/application.error';
 import { ErrorCodes } from '../../common/errors/error-codes';
 import { MediaService } from '../media/media.service';
+import { QueueService } from '../../infrastructure/queue/queue.service';
+import { StructuredLogger } from '../../common/logging/structured-logger.service';
+import { MetricsService } from '../../common/metrics/metrics.service';
+import { assertSafeText } from '../../common/security/input-safety';
+import { ALERT_EVALUATE_INCIDENT_JOB } from '../notifications/notification.constants';
+import { NAVIGATION_EVALUATE_INCIDENT_JOB } from '../navigation/navigation.constants';
 import { IncidentConfidencePolicy } from './incident-confidence.policy';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { IncidentResponseDto } from './incident-response.dto';
@@ -23,6 +29,9 @@ export class IncidentsService {
     private readonly incidentsRepository: IncidentsRepository,
     private readonly confidencePolicy: IncidentConfidencePolicy,
     @Optional() private readonly mediaService?: MediaService,
+    @Optional() private readonly queueService?: QueueService,
+    @Optional() private readonly logger?: StructuredLogger,
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
 
   async list(query: IncidentQueryDto): Promise<PaginatedResponse<IncidentResponseDto>> {
@@ -62,6 +71,12 @@ export class IncidentsService {
     const incident = await this.incidentsRepository.create({
       ...this.toIncidentCreateRecord(command, confidence, firstReportedAt),
     });
+    this.metrics?.increment('incidents_created_total', { source: command.sourceType });
+    await this.enqueueAlertEvaluation(incident.id, 'incident-created', incident.updatedAt);
+    await this.enqueueNavigationEvaluation(
+      incident.id,
+      `incident-created-${incident.updatedAt.getTime()}`,
+    );
 
     return this.toResponse(incident);
   }
@@ -81,6 +96,7 @@ export class IncidentsService {
       transaction,
       this.toIncidentCreateRecord(command, confidence, firstReportedAt),
     );
+    this.metrics?.increment('incidents_created_total', { source: command.sourceType });
 
     return this.toResponse(incident);
   }
@@ -140,6 +156,12 @@ export class IncidentsService {
     if (command.location) {
       this.validateCoordinate(command.location);
     }
+    if (command.locationName !== undefined) {
+      this.validateText(command.locationName, 'locationName', 200);
+    }
+    if (command.description !== undefined) {
+      this.validateText(command.description, 'description', 20_000);
+    }
 
     const resolvedAt =
       nextStatus === IncidentStatus.RESOLVED
@@ -175,8 +197,71 @@ export class IncidentsService {
     if (!updated) {
       throw new NotFoundException('Incident not found');
     }
+    this.metrics?.increment('incidents_updated_total', { status: updated.status });
+
+    if (
+      command.incidentType !== undefined ||
+      command.severity !== undefined ||
+      (command.status !== undefined && command.status !== current.status)
+    ) {
+      await this.enqueueAlertEvaluation(
+        updated.id,
+        'incident-materially-changed',
+        updated.updatedAt,
+      );
+      await this.enqueueNavigationEvaluation(
+        updated.id,
+        `incident-materially-changed-${updated.updatedAt.getTime()}`,
+      );
+    }
 
     return this.toResponse(updated);
+  }
+
+  private async enqueueAlertEvaluation(
+    incidentId: string,
+    reason: string,
+    eventTime: Date,
+  ): Promise<void> {
+    if (!this.queueService) return;
+    try {
+      await this.queueService.enqueueSystemJob(
+        ALERT_EVALUATE_INCIDENT_JOB,
+        { sourceId: incidentId, eventId: `${reason}-${eventTime.toISOString()}`, reason },
+        {
+          jobId: `alert-evaluation-incident-${incidentId}-${eventTime.getTime()}`,
+          attempts: 3,
+          backoffMs: 1_000,
+        },
+      );
+    } catch (error) {
+      this.logger?.error(
+        error,
+        error instanceof Error ? error.stack : undefined,
+        'IncidentsService.enqueueAlertEvaluation',
+      );
+    }
+  }
+
+  private async enqueueNavigationEvaluation(incidentId: string, eventId: string): Promise<void> {
+    if (!this.queueService) return;
+    try {
+      await this.queueService.enqueueSystemJob(
+        NAVIGATION_EVALUATE_INCIDENT_JOB,
+        { incidentId },
+        {
+          jobId: `navigation-incident-${incidentId}-${eventId}`,
+          attempts: 3,
+          backoffMs: 1_000,
+        },
+      );
+    } catch (error) {
+      this.logger?.error(
+        error,
+        error instanceof Error ? error.stack : undefined,
+        'IncidentsService.enqueueNavigationEvaluation',
+      );
+    }
   }
 
   private toFilters(query: IncidentQueryDto): IncidentFilters {
@@ -287,6 +372,7 @@ export class IncidentsService {
         `${field} must contain between 1 and ${maxLength} characters`,
       );
     }
+    assertSafeText(value, field);
   }
 
   private assertUuid(id: string): void {

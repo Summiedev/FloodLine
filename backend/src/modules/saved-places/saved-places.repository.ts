@@ -156,6 +156,7 @@ export class SavedPlacesRepository {
           )
         )
       ORDER BY "distanceMeters" ASC, sp."id" ASC
+      LIMIT 10000
     `);
     return rows;
   }

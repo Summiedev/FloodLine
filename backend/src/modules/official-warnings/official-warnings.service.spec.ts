@@ -98,6 +98,16 @@ describe('OfficialWarningsService', () => {
     expect(harness.queueService.enqueueSystemJob).not.toHaveBeenCalled();
   });
 
+  it('rejects oversized affected geometries before persistence', async () => {
+    const harness = createService();
+    const coordinates = Array.from({ length: 50_001 }, () => [3.4, 6.4]);
+
+    await expect(
+      harness.service.upsert(input({ affectedGeometry: { type: 'LineString', coordinates } })),
+    ).rejects.toThrow('too many coordinates');
+    expect(harness.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('emits a changed event for a material update', async () => {
     const existing = record();
     const harness = createService(existing);

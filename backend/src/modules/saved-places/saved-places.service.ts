@@ -3,6 +3,7 @@ import { Prisma, SavedPlaceType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { ApplicationError } from '../../common/errors/application.error';
 import { ErrorCodes } from '../../common/errors/error-codes';
+import { assertSafeText } from '../../common/security/input-safety';
 import { createPaginationMeta } from '../../common/pagination/pagination.dto';
 import { SavedPlacesRepository } from './saved-places.repository';
 import type {
@@ -194,6 +195,7 @@ export class SavedPlacesService {
         `${field} must contain between 1 and ${maxLength} characters`,
       );
     }
+    assertSafeText(value, field);
   }
 
   private normalizeLabel(value: string | null | undefined): string | null {

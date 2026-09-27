@@ -13,6 +13,12 @@ enum UserStatus {
   DELETED
 }
 
+enum ContributorStatus {
+  STANDARD
+  VERIFIED
+  SUSPENDED
+}
+
 enum AuthAuditAction {
   REGISTERED
   LOGIN_SUCCEEDED
@@ -35,6 +41,32 @@ enum IncidentSeverity {
   MODERATE
   HIGH
   SEVERE
+}
+
+enum TravelMode {
+  DRIVING
+  TRANSIT
+  CYCLING
+  WALKING
+}
+
+enum NavigationSessionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum RouteRiskLevel {
+  LOW
+  MODERATE
+  HIGH
+}
+
+enum NavigationRouteUpdateStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 enum IncidentStatus {
@@ -91,6 +123,59 @@ enum SavedPlaceType {
   CUSTOM
 }
 
+enum NotificationChannel {
+  APP_PUSH
+  SMS
+  WHATSAPP
+}
+
+enum NotificationEndpointStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+  OTHER
+}
+
+enum WhatsAppConnectionStatus {
+  NOT_CONNECTED
+  PENDING
+  VERIFIED
+  REVOKED
+}
+
+enum PhoneVerificationPurpose {
+  PHONE
+  WHATSAPP
+}
+
+enum NotificationType {
+  INCIDENT_ALERT
+  OFFICIAL_WARNING
+}
+
+enum NotificationState {
+  PENDING
+  DELIVERING
+  SENT
+  PARTIAL
+  SKIPPED
+  FAILED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  DELIVERING
+  SENT
+  FAILED
+  DEAD_LETTER
+  SKIPPED
+}
+
 model User {
   id                   String                 @id @default(uuid()) @db.Uuid
   email                String?                @unique(map: "users_email_key") @db.VarChar(320)
@@ -107,10 +192,51 @@ model User {
   media                Media[]
   incidentConfirmations IncidentConfirmation[]
   savedPlaces          SavedPlace[]
+  alertPreferences     AlertPreference[]
+  notificationPreferences NotificationPreference[]
+  notificationEndpoints NotificationEndpoint[]
+  deviceRegistrations  DeviceRegistration[]
+  messagingDestinations MessagingDestination[]
+  phoneVerifications   PhoneVerification[]
+  notifications        Notification[]
+  activeNavigationSessions ActiveNavigationSession[]
+  contributorStatus    UserContributorStatus? @relation("ContributorStatusOwner")
+  contributorStatusAuditEntries ContributorStatusAudit[] @relation("ContributorStatusTarget")
+  contributorStatusAssignments UserContributorStatus[] @relation("ContributorStatusAssignment")
+  contributorStatusAuditAssignments ContributorStatusAudit[] @relation("ContributorStatusAssigner")
 
   @@index([status])
   @@index([lastLoginAt])
   @@map("users")
+}
+
+model UserContributorStatus {
+  userId       String            @id @map("user_id") @db.Uuid
+  status       ContributorStatus @default(STANDARD)
+  assignedAt   DateTime          @default(now()) @map("assigned_at")
+  assignedBy   String?           @map("assigned_by") @db.Uuid
+  reason       String?           @db.VarChar(500)
+  user         User              @relation("ContributorStatusOwner", fields: [userId], references: [id], onDelete: Cascade)
+  assignedByUser User?           @relation("ContributorStatusAssignment", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("user_contributor_statuses")
+}
+
+model ContributorStatusAudit {
+  id             String            @id @default(uuid()) @db.Uuid
+  userId         String            @map("user_id") @db.Uuid
+  previousStatus ContributorStatus? @map("previous_status")
+  newStatus      ContributorStatus  @map("new_status")
+  assignedBy     String?            @map("assigned_by") @db.Uuid
+  reason         String?            @db.VarChar(500)
+  createdAt      DateTime           @default(now()) @map("created_at")
+  user           User               @relation("ContributorStatusTarget", fields: [userId], references: [id], onDelete: Cascade)
+  assigner       User?              @relation("ContributorStatusAssigner", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([newStatus, createdAt])
+  @@map("contributor_status_audits")
 }
 
 model UserPasswordCredential {
@@ -179,6 +305,8 @@ model Incident {
   updatedAt            DateTime                 @updatedAt @map("updated_at")
   floodReports         FloodReport[]
   confirmations        IncidentConfirmation[]
+  notifications        Notification[]
+  navigationRouteUpdates RouteUpdate[]
 
   @@index([incidentType])
   @@index([status])
@@ -266,6 +394,7 @@ model OfficialWarning {
   rawProviderMetadata Json?                @map("raw_provider_metadata")
   createdAt         DateTime               @default(now()) @map("created_at")
   updatedAt         DateTime               @updatedAt @map("updated_at")
+  notifications     Notification[]
 
   @@unique([authority, externalId], map: "official_warnings_authority_external_id_key")
   @@index([status, effectiveAt, expiresAt])
@@ -285,8 +414,226 @@ model SavedPlace {
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alertPreferences  AlertPreference[]
+  notifications     Notification[]
 
   @@index([userId, isActive, updatedAt])
   @@index([userId, type])
   @@map("saved_places")
+}
+
+model AlertPreference {
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  savedPlaceId   String?         @map("saved_place_id") @db.Uuid
+  radiusMeters   Int             @default(1000) @map("radius_meters")
+  incidentTypes  IncidentType[]  @default([SEVERE_FLOODING, MODERATE_FLOODING, BLOCKED_ROAD, BLOCKED_DRAIN]) @map("incident_types")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  savedPlace     SavedPlace?     @relation(fields: [savedPlaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, savedPlaceId])
+  @@index([savedPlaceId])
+  @@map("alert_preferences")
+}
+
+model NotificationPreference {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  channel   NotificationChannel
+  enabled   Boolean             @default(false)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel], map: "notification_preferences_user_id_channel_key")
+  @@index([userId, enabled])
+  @@map("notification_preferences")
+}
+
+model NotificationEndpoint {
+  id              String                     @id @default(uuid()) @db.Uuid
+  userId          String                     @map("user_id") @db.Uuid
+  channel         NotificationChannel
+  destinationHash String                     @map("destination_hash") @db.VarChar(128)
+  status          NotificationEndpointStatus @default(ACTIVE)
+  verifiedAt      DateTime?                  @map("verified_at")
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  updatedAt       DateTime                   @updatedAt @map("updated_at")
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device          DeviceRegistration?
+  messagingSms    MessagingDestination?   @relation("MessagingSmsEndpoint")
+  messagingWhatsapp MessagingDestination? @relation("MessagingWhatsappEndpoint")
+
+  @@unique([userId, channel, destinationHash], map: "notification_endpoints_user_channel_destination_key")
+  @@index([userId, channel, status])
+  @@map("notification_endpoints")
+}
+
+model DeviceRegistration {
+  id          String               @id @default(uuid()) @db.Uuid
+  userId      String               @map("user_id") @db.Uuid
+  endpointId  String               @unique @map("endpoint_id") @db.Uuid
+  tokenSecret String               @map("token_secret") @db.VarChar(2048)
+  platform    DevicePlatform
+  appVersion  String?              @map("app_version") @db.VarChar(64)
+  lastSeenAt  DateTime             @default(now()) @map("last_seen_at")
+  revokedAt   DateTime?            @map("revoked_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint    NotificationEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, lastSeenAt])
+  @@map("device_registrations")
+}
+
+model MessagingDestination {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  userId             String                    @unique @map("user_id") @db.Uuid
+  smsEndpointId      String                    @unique @map("sms_endpoint_id") @db.Uuid
+  whatsappEndpointId String                    @unique @map("whatsapp_endpoint_id") @db.Uuid
+  phoneNumber        String                    @unique @map("phone_number") @db.VarChar(16)
+  phoneVerifiedAt    DateTime?                 @map("phone_verified_at")
+  whatsappStatus     WhatsAppConnectionStatus  @default(NOT_CONNECTED) @map("whatsapp_status")
+  whatsappVerifiedAt DateTime?                 @map("whatsapp_verified_at")
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  smsEndpoint        NotificationEndpoint     @relation("MessagingSmsEndpoint", fields: [smsEndpointId], references: [id], onDelete: Cascade)
+  whatsappEndpoint   NotificationEndpoint     @relation("MessagingWhatsappEndpoint", fields: [whatsappEndpointId], references: [id], onDelete: Cascade)
+  verifications      PhoneVerification[]
+
+  @@index([phoneVerifiedAt])
+  @@index([whatsappStatus])
+  @@map("messaging_destinations")
+}
+
+model PhoneVerification {
+  id            String                   @id @default(uuid()) @db.Uuid
+  userId        String                   @map("user_id") @db.Uuid
+  destinationId String                   @map("destination_id") @db.Uuid
+  purpose       PhoneVerificationPurpose
+  codeHash      String                   @map("code_hash") @db.VarChar(128)
+  attemptCount  Int                      @default(0) @map("attempt_count")
+  maxAttempts   Int                      @default(5) @map("max_attempts")
+  expiresAt     DateTime                 @map("expires_at")
+  consumedAt    DateTime?                @map("consumed_at")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destination   MessagingDestination    @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@index([destinationId, purpose, expiresAt])
+  @@map("phone_verifications")
+}
+
+model Notification {
+  id                String                    @id @default(uuid()) @db.Uuid
+  userId            String                    @map("user_id") @db.Uuid
+  incidentId        String?                   @map("incident_id") @db.Uuid
+  officialWarningId String?                   @map("official_warning_id") @db.Uuid
+  savedPlaceId      String?                   @map("saved_place_id") @db.Uuid
+  notificationType  NotificationType          @map("notification_type")
+  severity          IncidentSeverity           @default(MODERATE)
+  dedupeKey         String                    @unique(map: "notifications_dedupe_key_key") @map("dedupe_key") @db.VarChar(512)
+  triggerKey        String                    @map("trigger_key") @db.VarChar(128)
+  escalationLevel   Int                       @default(0) @map("escalation_level")
+  title             String                    @db.VarChar(300)
+  body              String                    @db.Text
+  templateParameters Json?                    @map("template_parameters")
+  state             NotificationState          @default(PENDING)
+  readAt            DateTime?                  @map("read_at")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incident          Incident?                 @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  officialWarning   OfficialWarning?          @relation(fields: [officialWarningId], references: [id], onDelete: Cascade)
+  savedPlace        SavedPlace?               @relation(fields: [savedPlaceId], references: [id], onDelete: SetNull)
+  deliveries        NotificationDelivery[]
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt, createdAt])
+  @@index([userId, severity, createdAt])
+  @@index([userId, notificationType, createdAt])
+  @@index([incidentId, userId, escalationLevel])
+  @@index([officialWarningId, userId, escalationLevel])
+  @@index([state, updatedAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id                String                     @id @default(uuid()) @db.Uuid
+  notificationId    String                     @map("notification_id") @db.Uuid
+  channel           NotificationChannel
+  status            NotificationDeliveryStatus @default(PENDING)
+  attemptCount      Int                        @default(0) @map("attempt_count")
+  providerMessageId String?                    @map("provider_message_id") @db.VarChar(255)
+  lastError         String?                    @map("last_error") @db.VarChar(2000)
+  nextAttemptAt     DateTime?                  @map("next_attempt_at")
+  sentAt            DateTime?                  @map("sent_at")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+  notification      Notification               @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, channel], map: "notification_deliveries_notification_id_channel_key")
+  @@index([status, nextAttemptAt])
+  @@index([notificationId, status])
+  @@map("notification_deliveries")
+}
+
+model ActiveNavigationSession {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  userId                String                 @map("user_id") @db.Uuid
+  routeFingerprint      String                 @map("route_fingerprint") @db.VarChar(255)
+  routeGeometry         Unsupported("geometry(LineString, 4326)") @map("route_geometry")
+  origin                Unsupported("geography(Point, 4326)")
+  destination           Unsupported("geography(Point, 4326)")
+  travelMode            TravelMode             @map("travel_mode")
+  status                NavigationSessionStatus @default(ACTIVE)
+  startedAt             DateTime               @default(now()) @map("started_at")
+  lastRouteUpdateAt     DateTime               @default(now()) @map("last_route_update_at")
+  lastReroutedAt        DateTime?              @map("last_rerouted_at")
+  expiresAt              DateTime               @map("expires_at")
+  currentRiskScore      Decimal?               @map("current_risk_score") @db.Decimal(4, 3)
+  currentRiskLevel      RouteRiskLevel?        @map("current_risk_level")
+  currentAffectingIncidentCount Int             @default(0) @map("current_affecting_incident_count")
+  currentSevereIncidentCount Int                @default(0) @map("current_severe_incident_count")
+  routeDistanceMeters   Float                  @map("route_distance_meters")
+  routeDurationSeconds  Int                    @map("route_duration_seconds")
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routeUpdates          RouteUpdate[]
+
+  @@index([userId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@map("active_navigation_sessions")
+}
+
+model RouteUpdate {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  sessionId             String                    @map("session_id") @db.Uuid
+  triggeringIncidentId  String                    @map("triggering_incident_id") @db.Uuid
+  previousRouteFingerprint String                 @map("previous_route_fingerprint") @db.VarChar(255)
+  newRouteFingerprint   String                    @map("new_route_fingerprint") @db.VarChar(255)
+  previousRiskScore     Decimal?                  @map("previous_risk_score") @db.Decimal(4, 3)
+  newRiskScore          Decimal                   @map("new_risk_score") @db.Decimal(4, 3)
+  newRiskLevel           RouteRiskLevel            @map("new_risk_level")
+  newAffectingIncidentCount Int                    @map("new_affecting_incident_count")
+  newSevereIncidentCount Int                       @map("new_severe_incident_count")
+  reason                String                    @db.VarChar(100)
+  routeGeometry         Unsupported("geometry(LineString, 4326)") @map("route_geometry")
+  routeDistanceMeters   Float                     @map("route_distance_meters")
+  routeDurationSeconds  Int                       @map("route_duration_seconds")
+  status                NavigationRouteUpdateStatus @default(PENDING)
+  lastError             String?                   @map("last_error") @db.VarChar(2000)
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  sentAt                DateTime?                 @map("sent_at")
+  session               ActiveNavigationSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  triggeringIncident    Incident                  @relation(fields: [triggeringIncidentId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, triggeringIncidentId], map: "route_updates_session_id_triggering_incident_id_key")
+  @@index([sessionId, createdAt])
+  @@index([status, createdAt])
+  @@map("route_updates")
 }

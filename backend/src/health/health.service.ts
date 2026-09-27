@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { MetricsService } from '../common/metrics/metrics.service';
 import { PrismaService } from '../database/prisma.service';
 import { RedisService } from '../infrastructure/redis/redis.service';
 
@@ -22,6 +23,7 @@ export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
 
   liveness(): { status: 'ok'; service: string; timestamp: string } {
@@ -34,8 +36,8 @@ export class HealthService {
 
   async readiness(): Promise<ReadinessResult> {
     const [database, redis] = await Promise.all([
-      this.checkDependency(() => this.prisma.$queryRaw`SELECT 1`),
-      this.checkDependency(() => this.redis.ping()),
+      this.checkDependency('database', () => this.prisma.$queryRaw`SELECT 1`),
+      this.checkDependency('redis', () => this.redis.ping()),
     ]);
 
     return {
@@ -45,15 +47,24 @@ export class HealthService {
     };
   }
 
-  private async checkDependency(check: () => Promise<unknown>): Promise<ReadinessCheck> {
+  private async checkDependency(
+    dependency: string,
+    check: () => Promise<unknown>,
+  ): Promise<ReadinessCheck> {
     const startedAt = Date.now();
     try {
       await check();
-      return { status: 'up', latencyMs: Date.now() - startedAt };
+      const latencyMs = Date.now() - startedAt;
+      this.metrics?.observe('dependency_latency_ms', latencyMs, { dependency });
+      this.metrics?.setGauge('dependency_up', 1, { dependency });
+      return { status: 'up', latencyMs };
     } catch {
+      const latencyMs = Date.now() - startedAt;
+      this.metrics?.observe('dependency_latency_ms', latencyMs, { dependency });
+      this.metrics?.setGauge('dependency_up', 0, { dependency });
       return {
         status: 'down',
-        latencyMs: Date.now() - startedAt,
+        latencyMs,
         error: 'Dependency unavailable',
       };
     }

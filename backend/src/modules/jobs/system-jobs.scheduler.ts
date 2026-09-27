@@ -4,6 +4,7 @@ import { StructuredLogger } from '../../common/logging/structured-logger.service
 import { QueueService } from '../../infrastructure/queue/queue.service';
 import { OFFICIAL_WARNING_EXPIRATION_SWEEP_JOB } from '../official-warnings/official-warnings.constants';
 import { INCIDENT_EXPIRATION_SWEEP_JOB } from './system-job.constants';
+import { NAVIGATION_SESSION_EXPIRATION_SWEEP_JOB } from '../navigation/navigation.constants';
 
 @Injectable()
 export class SystemJobsScheduler implements OnModuleInit {
@@ -36,6 +37,16 @@ export class SystemJobsScheduler implements OnModuleInit {
         {},
         {
           jobId: 'official-warning-expiration-sweep',
+          repeatEveryMs: this.expirationSweepIntervalMs,
+          attempts: 3,
+          backoffMs: 1_000,
+        },
+      );
+      await this.queueService.enqueueSystemJob(
+        NAVIGATION_SESSION_EXPIRATION_SWEEP_JOB,
+        {},
+        {
+          jobId: 'navigation-session-expiration-sweep',
           repeatEveryMs: this.expirationSweepIntervalMs,
           attempts: 3,
           backoffMs: 1_000,
