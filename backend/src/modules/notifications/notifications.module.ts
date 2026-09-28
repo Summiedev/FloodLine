@@ -21,6 +21,12 @@ import {
   LocalSmsNotificationProvider,
   LocalWhatsAppNotificationProvider,
 } from './local-notification-providers';
+import { FcmPushNotificationProvider } from './fcm-push.provider';
+import {
+  TwilioSmsNotificationProvider,
+  TwilioWhatsAppNotificationProvider,
+} from './twilio-notification.providers';
+import { ConfigService } from '@nestjs/config';
 import {
   PUSH_NOTIFICATION_PROVIDER,
   SMS_NOTIFICATION_PROVIDER,
@@ -52,9 +58,52 @@ import { DeviceTokenCipher } from './device-token-cipher';
     LocalPushNotificationProvider,
     LocalSmsNotificationProvider,
     LocalWhatsAppNotificationProvider,
-    { provide: PUSH_NOTIFICATION_PROVIDER, useExisting: LocalPushNotificationProvider },
-    { provide: SMS_NOTIFICATION_PROVIDER, useExisting: LocalSmsNotificationProvider },
-    { provide: WHATSAPP_NOTIFICATION_PROVIDER, useExisting: LocalWhatsAppNotificationProvider },
+    FcmPushNotificationProvider,
+    TwilioSmsNotificationProvider,
+    TwilioWhatsAppNotificationProvider,
+    {
+      provide: PUSH_NOTIFICATION_PROVIDER,
+      inject: [ConfigService, LocalPushNotificationProvider, FcmPushNotificationProvider],
+      useFactory: (
+        config: ConfigService,
+        local: LocalPushNotificationProvider,
+        fcm: FcmPushNotificationProvider,
+      ) => {
+        if (config.getOrThrow<string>('notification.pushProvider') === 'local') return local;
+        fcm.assertConfigured();
+        return fcm;
+      },
+    },
+    {
+      provide: SMS_NOTIFICATION_PROVIDER,
+      inject: [ConfigService, LocalSmsNotificationProvider, TwilioSmsNotificationProvider],
+      useFactory: (
+        config: ConfigService,
+        local: LocalSmsNotificationProvider,
+        twilio: TwilioSmsNotificationProvider,
+      ) => {
+        if (config.getOrThrow<string>('notification.smsProvider') === 'local') return local;
+        twilio.assertConfigured();
+        return twilio;
+      },
+    },
+    {
+      provide: WHATSAPP_NOTIFICATION_PROVIDER,
+      inject: [
+        ConfigService,
+        LocalWhatsAppNotificationProvider,
+        TwilioWhatsAppNotificationProvider,
+      ],
+      useFactory: (
+        config: ConfigService,
+        local: LocalWhatsAppNotificationProvider,
+        twilio: TwilioWhatsAppNotificationProvider,
+      ) => {
+        if (config.getOrThrow<string>('notification.whatsappProvider') === 'local') return local;
+        twilio.assertConfigured();
+        return twilio;
+      },
+    },
   ],
   exports: [
     NotificationPreferencesService,

@@ -48,6 +48,13 @@ export const floodReportConfig = registerAs('floodReport', () => ({
 
 export const mediaConfig = registerAs('media', () => ({
   storageProvider: process.env.MEDIA_STORAGE_PROVIDER ?? 'local',
+  s3: {
+    endpoint: process.env.S3_ENDPOINT,
+    region: process.env.S3_REGION ?? 'auto',
+    bucket: process.env.S3_BUCKET,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
   maxBytes: Number(process.env.MEDIA_MAX_BYTES ?? 10_000_000),
   uploadUrlTtlSeconds: Number(process.env.MEDIA_UPLOAD_URL_TTL_SECONDS ?? 900),
   accessUrlTtlSeconds: Number(process.env.MEDIA_ACCESS_URL_TTL_SECONDS ?? 900),
@@ -109,10 +116,27 @@ export const notificationConfig = registerAs('notification', () => ({
   verificationResendCooldownSeconds: Number(process.env.NOTIFICATION_RESEND_COOLDOWN_SECONDS ?? 60),
   verificationMaxAttempts: Number(process.env.NOTIFICATION_MAX_VERIFICATION_ATTEMPTS ?? 5),
   evaluationBatchSize: Number(process.env.ALERT_EVALUATION_BATCH_SIZE ?? 250),
+  pushProvider: process.env.PUSH_NOTIFICATION_PROVIDER ?? 'local',
+  smsProvider: process.env.SMS_NOTIFICATION_PROVIDER ?? 'local',
+  whatsappProvider: process.env.WHATSAPP_NOTIFICATION_PROVIDER ?? 'local',
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    apiKeySid: process.env.TWILIO_API_KEY_SID,
+    apiKeySecret: process.env.TWILIO_API_KEY_SECRET,
+    smsFrom: process.env.TWILIO_SMS_FROM,
+    whatsappFrom: process.env.TWILIO_WHATSAPP_FROM,
+  },
 }));
 
 export const routingConfig = registerAs('routing', () => ({
   provider: process.env.ROUTING_PROVIDER ?? 'local',
+  mapboxAccessToken: process.env.MAPBOX_ACCESS_TOKEN,
+  mapboxDrivingProfile: process.env.MAPBOX_DRIVING_PROFILE ?? 'mapbox/driving-traffic',
   timeoutMs: Number(process.env.ROUTING_TIMEOUT_MS ?? 8_000),
   cacheTtlSeconds: Number(process.env.ROUTING_CACHE_TTL_SECONDS ?? 60),
 }));
@@ -151,6 +175,9 @@ export const contributorConfig = registerAs('contributor', () => ({
 
 export const geocodingConfig = registerAs('geocoding', () => ({
   provider: process.env.GEOCODING_PROVIDER ?? 'local',
+  mapboxAccessToken: process.env.MAPBOX_ACCESS_TOKEN,
+  mapboxCountry: process.env.MAPBOX_GEOCODING_COUNTRY ?? 'ng',
+  mapboxPermanent: process.env.MAPBOX_GEOCODING_PERMANENT === 'true',
   timeoutMs: Number(process.env.GEOCODING_TIMEOUT_MS ?? 5_000),
   cacheTtlSeconds: Number(process.env.GEOCODING_CACHE_TTL_SECONDS ?? 300),
 }));

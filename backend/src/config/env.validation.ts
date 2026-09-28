@@ -24,6 +24,15 @@ const environmentSchema = Joi.object({
   REPORT_DUPLICATE_WINDOW_SECONDS: Joi.number().integer().positive().max(86_400).default(60),
   REPORT_DUPLICATE_RADIUS_METERS: Joi.number().positive().max(10_000).default(50),
   MEDIA_STORAGE_PROVIDER: Joi.string().valid('local', 's3').default('local'),
+  S3_ENDPOINT: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .optional(),
+  S3_REGION: Joi.string().max(64).default('auto'),
+  S3_BUCKET: Joi.string()
+    .pattern(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+    .optional(),
+  S3_ACCESS_KEY_ID: Joi.string().min(8).max(256).optional(),
+  S3_SECRET_ACCESS_KEY: Joi.string().min(16).max(512).optional(),
   MEDIA_MAX_BYTES: Joi.number().integer().positive().max(100_000_000).default(10_000_000),
   MEDIA_UPLOAD_URL_TTL_SECONDS: Joi.number().integer().positive().max(86_400).default(900),
   MEDIA_ACCESS_URL_TTL_SECONDS: Joi.number().integer().positive().max(86_400).default(900),
@@ -74,7 +83,32 @@ const environmentSchema = Joi.object({
   NOTIFICATION_RESEND_COOLDOWN_SECONDS: Joi.number().integer().positive().max(3_600).default(60),
   NOTIFICATION_MAX_VERIFICATION_ATTEMPTS: Joi.number().integer().positive().max(20).default(5),
   ALERT_EVALUATION_BATCH_SIZE: Joi.number().integer().positive().max(1_000).default(250),
-  ROUTING_PROVIDER: Joi.string().valid('local').default('local'),
+  PUSH_NOTIFICATION_PROVIDER: Joi.string().valid('local', 'fcm').default('local'),
+  SMS_NOTIFICATION_PROVIDER: Joi.string().valid('local', 'twilio').default('local'),
+  WHATSAPP_NOTIFICATION_PROVIDER: Joi.string().valid('local', 'twilio').default('local'),
+  FIREBASE_PROJECT_ID: Joi.string().max(256).optional(),
+  FIREBASE_CLIENT_EMAIL: Joi.string().email().max(320).optional(),
+  FIREBASE_PRIVATE_KEY: Joi.string().min(100).max(16_384).optional(),
+  TWILIO_ACCOUNT_SID: Joi.string()
+    .pattern(/^AC[0-9a-fA-F]{32}$/)
+    .optional(),
+  TWILIO_API_KEY_SID: Joi.string()
+    .pattern(/^SK[0-9a-fA-F]{32}$/)
+    .optional(),
+  TWILIO_API_KEY_SECRET: Joi.string().min(16).max(256).optional(),
+  TWILIO_SMS_FROM: Joi.string()
+    .pattern(/^\+[1-9]\d{6,14}$/)
+    .optional(),
+  TWILIO_WHATSAPP_FROM: Joi.string()
+    .pattern(/^whatsapp:\+[1-9]\d{6,14}$/)
+    .optional(),
+  ROUTING_PROVIDER: Joi.string().valid('local', 'mapbox').default('local'),
+  MAPBOX_ACCESS_TOKEN: Joi.string()
+    .pattern(/^(pk|sk)\.[A-Za-z0-9._-]+$/)
+    .optional(),
+  MAPBOX_DRIVING_PROFILE: Joi.string()
+    .valid('mapbox/driving', 'mapbox/driving-traffic')
+    .default('mapbox/driving-traffic'),
   ROUTING_TIMEOUT_MS: Joi.number().integer().positive().min(250).max(30_000).default(8_000),
   ROUTING_CACHE_TTL_SECONDS: Joi.number().integer().min(0).max(3_600).default(60),
   ROUTE_RISK_CORRIDOR_METERS: Joi.number().positive().max(2_000).default(250),
@@ -92,7 +126,11 @@ const environmentSchema = Joi.object({
   NAVIGATION_MAX_DURATION_OVERHEAD_RATIO: Joi.number().min(0).max(5).default(0.5),
   NAVIGATION_EVALUATION_BATCH_SIZE: Joi.number().integer().positive().max(1_000).default(100),
   CONTRIBUTOR_ADMIN_USER_IDS: Joi.string().default(''),
-  GEOCODING_PROVIDER: Joi.string().valid('local').default('local'),
+  GEOCODING_PROVIDER: Joi.string().valid('local', 'mapbox').default('local'),
+  MAPBOX_GEOCODING_COUNTRY: Joi.string()
+    .pattern(/^[a-z]{2}$/i)
+    .default('ng'),
+  MAPBOX_GEOCODING_PERMANENT: Joi.boolean().truthy('true').falsy('false').default(false),
   GEOCODING_TIMEOUT_MS: Joi.number().integer().positive().min(250).max(30_000).default(5_000),
   GEOCODING_CACHE_TTL_SECONDS: Joi.number().integer().min(0).max(86_400).default(300),
   OFFICIAL_WARNING_PROVIDER_TIMEOUT_MS: Joi.number()
@@ -106,6 +144,7 @@ const environmentSchema = Joi.object({
   SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
   METRICS_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
   METRICS_ACCESS_TOKEN: Joi.string().min(32).optional(),
+  JOBS_PROCESSOR_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
 }).unknown(true);
 
 export function validateEnvironment(environment: Record<string, unknown>): Record<string, unknown> {
@@ -135,6 +174,55 @@ export function validateEnvironment(environment: Record<string, unknown>): Recor
     } catch {
       throw new Error(`Environment validation failed: invalid CORS origin ${origin}`);
     }
+  }
+
+  const needsS3 = result.value.MEDIA_STORAGE_PROVIDER === 's3';
+  if (
+    needsS3 &&
+    (!result.value.S3_ENDPOINT ||
+      !result.value.S3_BUCKET ||
+      !result.value.S3_ACCESS_KEY_ID ||
+      !result.value.S3_SECRET_ACCESS_KEY)
+  ) {
+    throw new Error(
+      'Environment validation failed: S3 storage requires endpoint, bucket, and credentials',
+    );
+  }
+  const needsMapbox =
+    result.value.ROUTING_PROVIDER === 'mapbox' || result.value.GEOCODING_PROVIDER === 'mapbox';
+  if (needsMapbox && !result.value.MAPBOX_ACCESS_TOKEN) {
+    throw new Error(
+      'Environment validation failed: Mapbox routing or geocoding requires MAPBOX_ACCESS_TOKEN',
+    );
+  }
+  if (result.value.GEOCODING_PROVIDER === 'mapbox' && !result.value.MAPBOX_GEOCODING_PERMANENT) {
+    throw new Error(
+      'Environment validation failed: FloodLine stores selected locations, so Mapbox geocoding requires MAPBOX_GEOCODING_PERMANENT=true',
+    );
+  }
+  if (
+    result.value.PUSH_NOTIFICATION_PROVIDER === 'fcm' &&
+    (!result.value.FIREBASE_PROJECT_ID ||
+      !result.value.FIREBASE_CLIENT_EMAIL ||
+      !result.value.FIREBASE_PRIVATE_KEY)
+  ) {
+    throw new Error('Environment validation failed: FCM requires Firebase service-account values');
+  }
+  const needsTwilio =
+    result.value.SMS_NOTIFICATION_PROVIDER === 'twilio' ||
+    result.value.WHATSAPP_NOTIFICATION_PROVIDER === 'twilio';
+  if (
+    needsTwilio &&
+    (!result.value.TWILIO_ACCOUNT_SID ||
+      !result.value.TWILIO_API_KEY_SID ||
+      !result.value.TWILIO_API_KEY_SECRET ||
+      (result.value.SMS_NOTIFICATION_PROVIDER === 'twilio' && !result.value.TWILIO_SMS_FROM) ||
+      (result.value.WHATSAPP_NOTIFICATION_PROVIDER === 'twilio' &&
+        !result.value.TWILIO_WHATSAPP_FROM))
+  ) {
+    throw new Error(
+      'Environment validation failed: Twilio providers require account, API-key, and sender values',
+    );
   }
 
   return result.value;

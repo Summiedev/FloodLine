@@ -41,7 +41,7 @@ Authentication endpoints have a stricter rate limit than the global API limit. R
 - Supported MIME types are `image/jpeg`, `image/png`, and `image/webp`. File extensions are not accepted or used to generate keys.
 - Media binary content is kept outside PostgreSQL. The database stores metadata and a server-generated key such as `media/reports/{reportId}/{mediaId}`.
 - Public media responses omit uploader IDs and storage keys. Completed media receive expiring read URLs.
-- The default `LocalStorageProvider` is an in-memory local/test provider. An S3-compatible implementation can be added behind the same provider interface before setting `MEDIA_STORAGE_PROVIDER=s3`.
+- The default `LocalStorageProvider` is an in-memory local/test provider. `S3StorageProvider` supports private S3-compatible stores such as Cloudflare R2 through signed upload and read URLs when `MEDIA_STORAGE_PROVIDER=s3` is configured.
 
 ## Incident geospatial conventions
 
@@ -140,6 +140,10 @@ docker compose --profile full up --build
 ## Environment variables
 
 See `.env.example`. Secrets are intentionally omitted. Production deployments must provide managed PostgreSQL and Redis credentials through the deployment environment or secret manager.
+
+## Vercel deployment
+
+The API can run as a Vercel Function with `JOBS_PROCESSOR_ENABLED=false`. BullMQ processing requires a separate persistent Node.js worker using `npm run worker` with `JOBS_PROCESSOR_ENABLED=true`. Production Mapbox, S3-compatible media, Firebase Cloud Messaging, and Twilio adapters are selectable by environment configuration. See [Vercel deployment and live-service setup](docs/VERCEL.md) for required variables, credential setup, and limitations.
 
 ## Notification channels
 

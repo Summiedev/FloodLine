@@ -119,7 +119,7 @@ import { MetricsModule } from './common/metrics/metrics.module';
     GeocodingModule,
     CommunityImpactModule,
     IntegrationsModule,
-    JobsModule,
+    JobsModule.forRoot(),
     MetricsModule,
   ],
   providers: [
