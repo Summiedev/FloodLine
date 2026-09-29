@@ -1,16 +1,18 @@
 import { Icon } from '../ui/Icon'
 import { ScreenButton } from '../ui/ScreenButton'
 import type { AssetName, Navigate } from '../../types'
+import { screenFromUrl } from '../../lib/routing'
 
-const items: Array<{ label: string; icon: AssetName; screen: 'home' | 'route-search' | 'report' | 'login' }> = [
+const items: Array<{ label: string; icon: AssetName; screen: 'home' | 'route-search' | 'report' | 'alerts' | 'profile' }> = [
   { label: 'Map', icon: 'map-nav.svg', screen: 'home' },
   { label: 'Route', icon: 'route-nav.svg', screen: 'route-search' },
   { label: 'Report', icon: 'report-nav.svg', screen: 'report' },
-  { label: 'Alerts', icon: 'alerts-nav.svg', screen: 'home' },
-  { label: 'Profile', icon: 'profile-nav.svg', screen: 'login' },
+  { label: 'Alerts', icon: 'alerts-nav.svg', screen: 'alerts' },
+  { label: 'Profile', icon: 'profile-nav.svg', screen: 'profile' },
 ]
 
 export function BottomNav({ navigate }: { navigate: Navigate }) {
+  const activeScreen = screenFromUrl()
   return (
     <nav className="bottom-nav" aria-label="Primary navigation">
       {items.map((item) => item.label === 'Report' ? (
@@ -19,7 +21,7 @@ export function BottomNav({ navigate }: { navigate: Navigate }) {
           <span>{item.label}</span>
         </ScreenButton>
       ) : (
-        <ScreenButton className={`nav-item ${item.label === 'Map' ? 'is-active' : ''}`} key={item.label} onClick={() => navigate(item.screen, item.label === 'Route' ? { sheet: true } : undefined)}>
+          <ScreenButton className={`nav-item ${((item.label === 'Map' && activeScreen === 'home') || (item.label === 'Route' && activeScreen === 'route-search') || (item.label === 'Alerts' && activeScreen === 'alerts') || (item.label === 'Profile' && activeScreen === 'profile')) ? 'is-active' : ''}`} key={item.label} onClick={() => navigate(item.screen, item.label === 'Route' ? { sheet: true } : undefined)}>
           <Icon name={item.icon} />
           <span>{item.label}</span>
         </ScreenButton>

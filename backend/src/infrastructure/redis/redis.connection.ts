@@ -11,6 +11,9 @@ export function redisConnectionFromUrl(redisUrl: string): RedisOptions {
     ...(parsedUrl.password ? { password: decodeURIComponent(parsedUrl.password) } : {}),
     ...(database ? { db: Number(database) } : {}),
     ...(parsedUrl.protocol === 'rediss:' ? { tls: {} } : {}),
+    // Some managed Redis users (including restricted Upstash users) do not
+    // permit INFO. PING/command health checks still work without it.
+    enableReadyCheck: false,
     maxRetriesPerRequest: null,
   };
 }

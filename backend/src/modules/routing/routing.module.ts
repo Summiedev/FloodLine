@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisModule } from '../../infrastructure/redis/redis.module';
+import { StructuredLogger } from '../../common/logging/structured-logger.service';
 import { LocalRoutingProvider } from './local-routing.provider';
 import { MapboxRoutingProvider } from './mapbox-routing.provider';
 import { RouteRiskRepository } from './route-risk.repository';
@@ -14,6 +15,7 @@ import { ROUTING_PROVIDER } from './routing.types';
   imports: [RedisModule],
   controllers: [RoutingController],
   providers: [
+    StructuredLogger,
     LocalRoutingProvider,
     MapboxRoutingProvider,
     RouteRiskRepository,

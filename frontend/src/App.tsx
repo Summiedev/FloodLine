@@ -9,6 +9,12 @@ import { ReportFlowScreen } from './components/report/ReportFlowScreen'
 import { AuthScreen } from './components/auth/AuthScreen'
 import { screenFromUrl, screenUrl } from './lib/routing'
 import type { Navigate, NavigateOptions, Screen } from './types'
+import { ProfileScreen } from './components/settings/SettingsScreens'
+import { AlertsScreen } from './components/settings/AlertsScreen'
+import { AlertRadiusScreen } from './components/settings/AlertRadiusScreen'
+import { AlertTypesScreen } from './components/settings/AlertTypesScreen'
+import { NotificationSettingsScreen } from './components/settings/NotificationSettingsScreen'
+import { SavedPlacesScreen } from './components/settings/SavedPlacesScreen'
 
 function ScreenTransition({ screen, animation, children }: { screen: Screen; animation: string; children: ReactNode }) {
   return <div key={screen} className={`screen-transition ${animation}`}>{children}</div>
@@ -88,6 +94,12 @@ function App() {
   if (screen === 'report') return <ScreenTransition screen={screen} animation={screenTransition}><ReportFlowScreen navigate={navigate} /></ScreenTransition>
   if (screen === 'login') return <ScreenTransition screen={screen} animation={screenTransition}><AuthScreen mode="login" navigate={navigate} /></ScreenTransition>
   if (screen === 'register') return <ScreenTransition screen={screen} animation={screenTransition}><AuthScreen mode="register" navigate={navigate} /></ScreenTransition>
+  if (screen === 'saved-places') return <ScreenTransition screen={screen} animation={screenTransition}><SavedPlacesScreen navigate={navigate} /></ScreenTransition>
+  if (screen === 'alert-radius') return <ScreenTransition screen={screen} animation={screenTransition}><AlertRadiusScreen navigate={navigate} /></ScreenTransition>
+  if (screen === 'alert-types') return <ScreenTransition screen={screen} animation={screenTransition}><AlertTypesScreen navigate={navigate} /></ScreenTransition>
+  if (screen === 'notification-settings') return <ScreenTransition screen={screen} animation={screenTransition}><NotificationSettingsScreen navigate={navigate} /></ScreenTransition>
+  if (screen === 'alerts') return <ScreenTransition screen={screen} animation={screenTransition}><AlertsScreen navigate={navigate} /></ScreenTransition>
+  if (screen === 'profile') return <ScreenTransition screen={screen} animation={screenTransition}><ProfileScreen navigate={navigate} /></ScreenTransition>
   return <ScreenTransition screen="home" animation={screenTransition}><HomeScreen navigate={navigate} /></ScreenTransition>
 }
 

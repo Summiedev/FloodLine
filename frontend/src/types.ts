@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type Screen = 'landing' | 'home' | 'route-search' | 'route-results' | 'hazards' | 'reroute' | 'active' | 'report' | 'login' | 'register'
+export type Screen = 'landing' | 'home' | 'route-search' | 'route-results' | 'hazards' | 'reroute' | 'active' | 'report' | 'login' | 'register' | 'saved-places' | 'alert-radius' | 'alert-types' | 'notification-settings' | 'alerts' | 'profile'
 export type AssetName =
   | 'alerts-nav.svg' | 'back.svg' | 'bike.svg' | 'bus.svg' | 'car.svg'
   | 'current-location.svg' | 'hazard-marker.svg' | 'home.svg' | 'locate.svg'

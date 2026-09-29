@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import { ApplicationError } from '../../common/errors/application.error';
@@ -11,6 +11,7 @@ import type { RouteLineString, RoutePreviewRoute } from '../routing/routing.type
 import {
   NAVIGATION_EVALUATE_INCIDENT_JOB,
   NAVIGATION_ROUTE_UPDATE_DELIVERY_JOB,
+  NAVIGATION_UPDATE_TRANSPORT,
 } from './navigation.constants';
 import { NavigationRepository } from './navigation.repository';
 import type { NavigationUpdateTransport } from './navigation-update.transport';
@@ -35,6 +36,7 @@ export class NavigationService {
     private readonly routingService: RoutingService,
     private readonly queueService: QueueService,
     private readonly logger: StructuredLogger,
+    @Inject(NAVIGATION_UPDATE_TRANSPORT)
     private readonly updateTransport: NavigationUpdateTransport,
     configService: ConfigService,
   ) {

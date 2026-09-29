@@ -33,6 +33,7 @@ import {
   WHATSAPP_NOTIFICATION_PROVIDER,
 } from './notification-providers';
 import { DeviceTokenCipher } from './device-token-cipher';
+import { StructuredLogger } from '../../common/logging/structured-logger.service';
 
 @Module({
   imports: [AuthModule],
@@ -44,6 +45,7 @@ import { DeviceTokenCipher } from './device-token-cipher';
     AlertHistoryController,
   ],
   providers: [
+    StructuredLogger,
     NotificationPreferencesRepository,
     NotificationPreferencesService,
     DeviceTokenCipher,

@@ -12,7 +12,12 @@ import { redisConnectionFromUrl } from '../redis/redis.connection';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        connection: redisConnectionFromUrl(configService.getOrThrow<string>('redis.url')),
+        connection: {
+          ...redisConnectionFromUrl(configService.getOrThrow<string>('redis.url')),
+          // Restricted managed Redis users may deny INFO; BullMQ only needs
+          // the command-compatible connection for this application.
+          skipVersionCheck: true,
+        },
         prefix: configService.getOrThrow<string>('redis.prefix'),
       }),
     }),

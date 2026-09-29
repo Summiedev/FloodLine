@@ -1,15 +1,22 @@
-import { ScreenButton } from '../ui/ScreenButton'
+import { useEffect, useState } from 'react'
+import { navigationApi } from '../../api/services'
+import type { NavigationSession } from '../../api/types'
 import type { Navigate } from '../../types'
+import { ScreenButton } from '../ui/ScreenButton'
 import { ActiveRouteSheet, HazardItem, RouteFlowCanvas, SheetHandle } from './RoutePrimitives'
+import { loadRoutePlan } from './route-state'
 
 export function HazardsScreen({ navigate }: { navigate: Navigate }) {
-  return <RouteFlowCanvas onClose={() => navigate('route-results')}><section className="route-state-sheet hazards-sheet"><SheetHandle /><h1>2 flood hazards on this route</h1><div className="hazard-list"><HazardItem tone="severe" title="Admiralty Way" severity="Severe flooding" detail="14 confirmations • Updated 3 min ago" /><HazardItem tone="moderate" title="Lekki-Epe Expressway" severity="Moderate flooding" detail="5 confirmations • Updated 8 min ago" /></div><div className="sheet-actions"><ScreenButton className="primary-action" onClick={() => navigate('reroute')}>Take Lower-Risk Route</ScreenButton><ScreenButton className="secondary-action" onClick={() => navigate('active')}>Continue with this route</ScreenButton></div></section></RouteFlowCanvas>
+  const plan = loadRoutePlan(); const hazards = plan?.preview.routes[0]?.risk.incidents ?? []
+  return <RouteFlowCanvas onClose={() => navigate('route-results')}><section className="route-state-sheet hazards-sheet"><SheetHandle /><h1>{hazards.length} flood hazard{hazards.length === 1 ? '' : 's'} on this route</h1>{hazards.length ? <div className="hazard-list">{hazards.map((hazard) => <HazardItem key={hazard.id} tone={hazard.severity === 'SEVERE' ? 'severe' : 'moderate'} title={hazard.locationName} severity={`${hazard.severity} flooding`} detail={`${hazard.confidenceLabel} confidence · ${Math.round(hazard.distanceMeters)} m from route`} />)}</div> : <p className="sheet-description">No currently known reports were returned for this route.</p>}<div className="sheet-actions"><ScreenButton className="secondary-action" onClick={() => navigate('route-results')}>Back to routes</ScreenButton></div></section></RouteFlowCanvas>
 }
 
-export function RerouteScreen({ navigate }: { navigate: Navigate }) {
-  return <RouteFlowCanvas onClose={() => navigate('hazards')}><section className="route-state-sheet reroute-sheet"><SheetHandle /><div className="sheet-title-row"><span className="danger-dot" /><h1>New flooding reported ahead</h1></div><p className="sheet-description">1.2 km away on your current route. Reported by 2 people in the last 3 minutes.</p><div className="new-route-card"><div><strong>New route found</strong><span>Avoids reported flooding completely.</span></div><b>+6 min</b></div><div className="sheet-actions"><ScreenButton className="primary-action" onClick={() => navigate('active')}>Use New Route</ScreenButton><ScreenButton className="secondary-action" onClick={() => navigate('hazards')}>View Report</ScreenButton><ScreenButton className="text-action" onClick={() => navigate('active')}>Stay on current route</ScreenButton></div></section></RouteFlowCanvas>
-}
+export function RerouteScreen({ navigate }: { navigate: Navigate }) { return <RouteFlowCanvas onClose={() => navigate('hazards')}><section className="route-state-sheet reroute-sheet"><SheetHandle /><div className="sheet-title-row"><span className="danger-dot" /><h1>New flooding reported ahead</h1></div><p className="sheet-description">A lower reported flood-risk alternative may be available. Review the route options before continuing.</p><div className="sheet-actions"><ScreenButton className="primary-action" onClick={() => navigate('route-results')}>View route options</ScreenButton><ScreenButton className="text-action" onClick={() => navigate('active')}>Stay on current route</ScreenButton></div></section></RouteFlowCanvas> }
 
 export function ActiveRouteScreen({ navigate }: { navigate: Navigate }) {
-  return <RouteFlowCanvas routeUpdated noOverlay onClose={() => navigate('route-results')}><ActiveRouteSheet /></RouteFlowCanvas>
+  const [session, setSession] = useState<NavigationSession | null>(null); const [error, setError] = useState(''); const id = sessionStorage.getItem('floodline-navigation-session')
+  useEffect(() => { if (!id) { setError('No active navigation session was found.'); return }; let active = true; const refresh = () => { navigationApi.get(id).then((value) => { if (active) setSession(value) }).catch(() => { if (active) setError('Navigation session is no longer available.') }) }; refresh(); const timer = window.setInterval(refresh, 15_000); return () => { active = false; window.clearInterval(timer) } }, [id])
+  const stop = () => { if (!session) return; navigationApi.stop(session.id).then(() => navigate('home')).catch(() => setError('Navigation could not be ended.')) }
+  if (error) return <main className="screen-shell settings-screen"><section className="settings-state"><p>{error}</p><ScreenButton onClick={() => navigate('route-search')}>Plan a route</ScreenButton></section></main>
+  return <RouteFlowCanvas noOverlay destinationLabel={session ? 'your destination' : 'loading'} durationSeconds={session?.route.durationSeconds} distanceMeters={session?.route.distanceMeters} routeUpdated={Boolean(session?.updates?.some((update) => update.status === 'SENT'))}><ActiveRouteSheet onStop={stop} /></RouteFlowCanvas>
 }

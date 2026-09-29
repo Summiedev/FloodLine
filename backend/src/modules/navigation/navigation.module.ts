@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { StructuredLogger } from '../../common/logging/structured-logger.service';
 import { AuthModule } from '../auth/auth.module';
 import { RoutingModule } from '../routing/routing.module';
 import { LocalNavigationUpdateTransport } from './navigation-update.transport';
@@ -11,6 +12,7 @@ import { NAVIGATION_UPDATE_TRANSPORT } from './navigation.constants';
   imports: [AuthModule, RoutingModule],
   controllers: [NavigationController],
   providers: [
+    StructuredLogger,
     LocalNavigationUpdateTransport,
     NavigationRepository,
     NavigationService,

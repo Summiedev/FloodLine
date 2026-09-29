@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { StructuredLogger } from '../../common/logging/structured-logger.service';
 import { LocalGeocodingProvider } from './local-geocoding.provider';
 import { MapboxGeocodingProvider } from './mapbox-geocoding.provider';
 import { GeocodingController } from './geocoding.controller';
@@ -9,6 +10,7 @@ import { GEOCODING_PROVIDER } from './geocoding.types';
 @Module({
   controllers: [GeocodingController],
   providers: [
+    StructuredLogger,
     LocalGeocodingProvider,
     MapboxGeocodingProvider,
     GeocodingService,
