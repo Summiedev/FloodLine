@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { incidentsApi, warningsApi } from '../../api/services'
 import { session } from '../../api/session'
+import { env } from '../../config/env'
 import type { Coordinate, IncidentDetail, MapIncident, OfficialWarning } from '../../api/types'
 import type { Navigate } from '../../types'
 import { BottomNav } from '../navigation/BottomNav'
@@ -11,6 +12,23 @@ import { LiveMap } from './LiveMap'
 
 type Viewport = { north: number; south: number; east: number; west: number; limit: number }
 const defaultCenter: Coordinate = { longitude: 3.3792, latitude: 6.5244 }
+
+function warningFocusPoint(warning: OfficialWarning): Coordinate | undefined {
+  const points: Array<[number, number]> = []
+  const visit = (value: unknown): void => {
+    if (!Array.isArray(value)) return
+    if (value.length >= 2 && typeof value[0] === 'number' && typeof value[1] === 'number') {
+      const [longitude, latitude] = value
+      if (longitude >= -180 && longitude <= 180 && latitude >= -90 && latitude <= 90) points.push([longitude, latitude])
+      return
+    }
+    value.forEach(visit)
+  }
+  visit(warning.affectedGeometry?.coordinates)
+  if (points.length === 0) return undefined
+  const total = points.reduce((result, [longitude, latitude]) => ({ longitude: result.longitude + longitude, latitude: result.latitude + latitude }), { longitude: 0, latitude: 0 })
+  return { longitude: total.longitude / points.length, latitude: total.latitude / points.length }
+}
 
 function viewport(point: Coordinate): Viewport {
   return {
@@ -39,6 +57,7 @@ export function HomeScreen({ navigate, onRequireAuth }: { navigate: Navigate; on
   const [warning, setWarning] = useState<OfficialWarning>()
   const [selected, setSelected] = useState<IncidentDetail | null>(null)
   const [mapCenter, setMapCenter] = useState<Coordinate>(defaultCenter)
+  const [warningFocus, setWarningFocus] = useState<Coordinate>()
   const [locationReady, setLocationReady] = useState(false)
   const [error, setError] = useState('')
 
@@ -74,11 +93,28 @@ export function HomeScreen({ navigate, onRequireAuth }: { navigate: Navigate; on
     )
   }, [loadFeed])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (env.demoMode) {
+      void loadFeed(viewport(defaultCenter))
+      return
+    }
+    load()
+  }, [load, loadFeed])
 
   const openIncident = (id: string) => {
     incidentsApi.detail(id).then(setSelected).catch(() => setError('Incident details are temporarily unavailable.'))
   }
 
-  return <main className="screen-shell map-shell" aria-label="FloodLine home map"><LiveMap center={mapCenter} incidents={incidents} onIncidentClick={openIncident} onViewportChange={(nextBounds) => { void loadFeed({ ...nextBounds, limit: 100 }) }} /><div className="map-wash" /><div className="home-content"><div className="map-top-controls"><SearchBar onClick={() => navigate('route-search', { sheet: true })} /><ScreenButton className="locate-button" ariaLabel="Use current location" onClick={load}><Icon name="locate.svg" /></ScreenButton></div><div className="warning-wrap"><WarningBanner warning={warning} /></div><div className="map-open-space">{!locationReady && <div className="map-location-prompt"><p>Flood activity is visible for the map area. Use your location to center nearby hazards.</p><ScreenButton onClick={load}>Use my location</ScreenButton></div>}{error && <p className="auth-error map-error" role="alert">{error}</p>}<ScreenButton className="plan-route-pill" onClick={() => navigate('route-search', { sheet: true })}><Icon name="route.svg" /><strong>Plan Safe Route</strong></ScreenButton></div></div><BottomNav navigate={navigate} />{selected && <IncidentSheet incident={selected} onClose={() => setSelected(null)} onConfirmed={() => { setSelected(null); void loadFeed(viewport(mapCenter)) }} onRequireAuth={onRequireAuth} />}</main>
+  const focusWarning = () => {
+    if (!warning) return
+    const focus = warningFocusPoint(warning)
+    if (focus) {
+      setWarningFocus(focus)
+      setError('')
+    } else {
+      setError('This warning does not include a viewable affected area.')
+    }
+  }
+
+  return <main className="screen-shell map-shell" aria-label="FloodLine home map"><LiveMap center={mapCenter} focusPoint={warningFocus} incidents={incidents} showWarningMarkers userLocation={locationReady ? mapCenter : undefined} onIncidentClick={openIncident} onViewportChange={(nextBounds) => { void loadFeed({ ...nextBounds, limit: 100 }) }} /><div className="map-wash" /><div className="home-content"><div className="map-top-controls"><SearchBar onClick={() => navigate('route-search', { sheet: true })} /><ScreenButton className="locate-button" ariaLabel="Use current location" onClick={load}><Icon name="locate.svg" /></ScreenButton></div><div className="warning-wrap"><WarningBanner warning={warning} onClick={focusWarning} /></div><div className="map-open-space">{!locationReady && <div className="map-location-prompt"><p>Flood activity is visible for the map area. Use your location to center nearby hazards.</p><ScreenButton onClick={load}>Use my location</ScreenButton></div>}{error && <p className="auth-error map-error" role="alert">{error}</p>}<ScreenButton className="plan-route-pill" onClick={() => navigate('route-search', { sheet: true })}><Icon name="route.svg" /><strong>Plan Safe Route</strong></ScreenButton></div></div><BottomNav navigate={navigate} />{selected && <IncidentSheet incident={selected} onClose={() => setSelected(null)} onConfirmed={() => { setSelected(null); void loadFeed(viewport(mapCenter)) }} onRequireAuth={onRequireAuth} />}</main>
 }

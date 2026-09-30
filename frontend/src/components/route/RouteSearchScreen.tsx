@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { locationsApi, routesApi, savedPlacesApi } from '../../api/services'
 import { session } from '../../api/session'
+import { env } from '../../config/env'
 import type { Coordinate, LocationResult, SavedPlace } from '../../api/types'
 import type { Navigate } from '../../types'
 import { Icon } from '../ui/Icon'
@@ -22,6 +23,20 @@ function locationError(code?: number): string {
   if (code === 1) return 'Location permission is blocked. Allow it in your browser settings, then try again.'
   if (code === 2) return 'Your device could not find a location. Check location services and try again.'
   return 'We could not find your location. Try again or choose a saved place.'
+}
+
+const demoTrip = {
+  origin: { longitude: 3.3792, latitude: 6.5244 },
+  destination: { longitude: 3.4219, latitude: 6.4281 },
+  destinationLabel: 'Victoria Island, Lagos',
+}
+
+function LocationResultRow({ result, onSelect }: { result: LocationResult; onSelect: (result: LocationResult) => void }) {
+  return <button className="route-location-result" type="button" onClick={() => onSelect(result)}>
+    <span className="route-result-icon"><Icon name="report-location-pin.svg" /></span>
+    <span className="route-result-copy"><strong>{result.name}</strong><small>{result.formattedAddress}</small></span>
+    <span className="route-result-arrow" aria-hidden="true">›</span>
+  </button>
 }
 
 export function RouteSearchScreen({ navigate, onBack, sheet = false }: { navigate: Navigate; onBack: () => void; sheet?: boolean }) {
@@ -82,6 +97,15 @@ export function RouteSearchScreen({ navigate, onBack, sheet = false }: { navigat
     }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 })
   }
 
+  const useDemoTrip = () => {
+    setOrigin(demoTrip.origin)
+    setOriginLabel('Demo start · Lekki Phase 1')
+    setDestination({ providerPlaceId: 'demo-victoria-island', name: 'Victoria Island', formattedAddress: demoTrip.destinationLabel, coordinates: demoTrip.destination })
+    setDestinationQuery(demoTrip.destinationLabel)
+    setResults([])
+    setError('')
+  }
+
   const submit = async () => {
     if (!origin) { setError('Choose your starting point before showing routes.'); return }
     if (!destination) { setError('Select a destination from the search results first.'); return }
@@ -105,14 +129,15 @@ export function RouteSearchScreen({ navigate, onBack, sheet = false }: { navigat
         <div className="route-location-section">
           <span className="field-label">Starting point</span>
           {origin ? <div className="current-location-card is-ready" role="status">
-            <span className="location-status-icon"><Icon name="current-location.svg" /></span>
-            <span className="current-location-copy"><strong>{originLabel || 'Current location'}</strong><small>GPS position ready</small></span>
+            <span className="location-status-icon"><Icon name="report-location-pin.svg" /></span>
+            <span className="current-location-copy"><strong>{originLabel || 'My current location'}</strong><small>Pin dropped · GPS position ready</small></span>
             <ScreenButton className="change-location-button" onClick={useCurrentLocation} disabled={locating}>{locating ? 'Updating…' : 'Change'}</ScreenButton>
           </div> : <ScreenButton className="location-entry location-entry-primary" onClick={useCurrentLocation} disabled={locating} ariaBusy={locating}>
             <span className="location-status-icon"><Icon name="locate.svg" /></span>
             <span className="location-action-copy"><strong>{locating ? 'Finding your location…' : 'Use my current location'}</strong><small>{locating ? 'Waiting for device permission' : 'Start from where you are'}</small></span>
             <span className="location-action-arrow" aria-hidden="true">›</span>
           </ScreenButton>}
+          {env.demoMode && <ScreenButton className="demo-trip-button" onClick={useDemoTrip}>Use controlled Lagos demo trip</ScreenButton>}
         </div>
         <label className="destination-input"><input autoFocus={Boolean(origin)} value={destinationQuery} onChange={(event) => { setDestinationQuery(event.target.value); setDestination(null); setError('') }} onKeyDown={(event) => { if (event.key === 'Enter' && results[0]) { event.preventDefault(); selectDestination(results[0]) } }} placeholder="Search road, landmark or place" /><Icon name="search.svg" /></label>
       </div>
@@ -121,9 +146,9 @@ export function RouteSearchScreen({ navigate, onBack, sheet = false }: { navigat
     <section className="places-section">
       {searching && <p className="settings-state">Searching…</p>}
       {!searching && destinationQuery.trim().length >= 2 && results.length === 0 && !destination && <p className="settings-state">No matching locations found.</p>}
-      {!searching && results.length > 0 && <div className="place-list">{results.map((result) => <button className="route-location-result" type="button" key={result.providerPlaceId} onClick={() => selectDestination(result)}><strong>{result.name}</strong><small>{result.formattedAddress}</small></button>)}</div>}
-      {!destinationQuery && <><h2>Saved places</h2><div className="place-list">{savedPlaces.map((place) => <button className="route-location-result" type="button" key={place.id} onClick={() => selectDestination({ providerPlaceId: place.providerPlaceId || place.id, name: place.customLabel || place.type, formattedAddress: place.formattedAddress, coordinates: place.location })}><strong>{place.customLabel || place.type}</strong><small>{place.formattedAddress}</small></button>)}</div></>}
+      {!searching && results.length > 0 && <div className="place-list">{results.map((result) => <LocationResultRow key={result.providerPlaceId} result={result} onSelect={selectDestination} />)}</div>}
+      {!destinationQuery && <><h2>Saved places</h2><div className="place-list">{savedPlaces.map((place) => <LocationResultRow key={place.id} result={{ providerPlaceId: place.providerPlaceId || place.id, name: place.customLabel || place.type, formattedAddress: place.formattedAddress, coordinates: place.location }} onSelect={selectDestination} />)}</div></>}
     </section>
-    <ScreenButton className="settings-primary route-search-submit" disabled={loading || locating} onClick={submit}>{loading ? 'Finding routes…' : 'Show routes'}</ScreenButton>
+    <ScreenButton className="settings-primary route-search-submit" disabled={loading || locating} onClick={submit}><Icon name="route.svg" /><span>{loading ? 'Finding routes…' : 'Show routes'}</span></ScreenButton>
   </main>
 }

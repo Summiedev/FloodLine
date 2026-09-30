@@ -34,7 +34,7 @@ export function LandingPage({ navigate }: { navigate: Navigate }) {
           <div className="landing-map-preview" />
           <div className="landing-map-overlay" />
           <div className="landing-preview-card landing-preview-search"><Icon name="search.svg" /><span>Search road, area, or destination</span></div>
-          <div className="landing-preview-alert"><span className="preview-alert-icon"><Icon name="warning.svg" /></span><div><strong>Official flood warning</strong><small>LASEMA Advisory • Published 8:10 AM</small></div><b>View</b></div>
+          <div className="landing-preview-alert"><span className="preview-alert-icon"><Icon name="warning.svg" /></span><div><strong>Official flood warning</strong><small>LASEMA Advisory • Published 8:10 AM</small></div><ScreenButton className="landing-preview-view" onClick={() => navigate('home')}>View</ScreenButton></div>
           <div className="landing-preview-route"><Icon name="route.svg" /><span><small>Safer route found</small><strong>31 min <em>• Lower reported risk</em></strong></span></div>
           <span className="landing-preview-marker"><Icon name="severe.svg" /></span>
         </div>

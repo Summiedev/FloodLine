@@ -1,108 +1,139 @@
 # FloodLine
 
-FloodLine is a flood-awareness, community-reporting, alerting, and safer-routing platform. The repository currently contains the backend foundation, authentication/user-account infrastructure, canonical flood incidents, and community flood-report submission. Saved places, alerts, notifications, and routing remain reserved for later feature work.
+FloodLine is a hyperlocal flood-mobility assistant. It combines community reports, official warnings, saved-place alerts, route-risk evaluation, and active-navigation monitoring to help people make better travel decisions during flooding.
 
 ## Repository layout
 
 ```text
 .
-├── backend/       NestJS API, Prisma schema/migrations, tests, and Docker setup
-├── .gitignore     Repository-wide generated-file and secret exclusions
-└── README.md      Project overview and developer onboarding
+├── backend/       NestJS API, Prisma/PostGIS migrations, tests, jobs, and demo tooling
+├── frontend/      Vite/React web client with Mapbox maps and route flows
+└── README.md      Developer and judge onboarding
 ```
 
-Backend-specific architecture and implementation notes are in [`backend/README.md`](backend/README.md).
+Backend architecture and API notes are in [`backend/README.md`](backend/README.md). Security and residual risks are documented in [`backend/SECURITY.md`](backend/SECURITY.md).
 
-## Current backend capabilities
+## Implemented product areas
 
-- TypeScript and NestJS API
-- PostgreSQL with PostGIS through Prisma
-- Redis and BullMQ infrastructure
-- Versioned API under `/api/v1`
-- Environment validation, structured logging, request IDs, validation, error handling, CORS, and rate limiting
-- Liveness and dependency readiness checks
-- Swagger documentation at `/docs`
-- Email/password authentication with Argon2id password hashing
-- JWT access tokens with rotating, revocable refresh sessions
-- User registration, login, logout, current-user, and basic display-name update endpoints
-- Authentication audit logging
-- Canonical flood-incident map queries with PostGIS radius and bounding-box filtering
-- Authenticated community flood-report submission with transactional incident association
-- Post-commit BullMQ job emission for newly created community reports
-- Authenticated community incident confirmations with cooldown and transaction-safe aggregates
-- Secure image media authorization and completion with provider abstraction
-- Safe available-report-photo summaries on incident detail responses
+- Email/password authentication with revocable refresh sessions
+- Canonical flood incidents and PostGIS map/radius/bounding-box queries
+- Authenticated community flood reports and confirmations
+- Secure image-media authorization with local and S3-compatible providers
+- Official-warning ingestion with idempotent provider/external-ID upserts
+- Saved places and configurable alert preferences
+- Notification destinations, verified phone/WhatsApp state, alert evaluation, and delivery records
+- Map feed with incremental refresh support
+- Provider-neutral geocoding and routing
+- Deterministic flood-risk scoring and lower reported-risk route recommendations
+- Active navigation sessions with asynchronous hazard monitoring and reroute updates
+- Community impact, contributor status, and in-app alert history
+- Structured logging, metrics, health/readiness checks, BullMQ jobs, and a persistent worker
 
-## Planned domain boundaries
+FloodLine does not claim that a route is guaranteed safe. The product uses language such as `lower reported flood risk`, `flood reports detected`, and `no currently known reports`.
 
-The backend includes module boundaries for the following future domains:
-
-- official warnings
-- saved places
-- alert preferences
-- notifications
-- routing and navigation
-- geocoding
-- community impact
-- external integrations
-- background jobs
-
-These modules are intentionally not implemented until their individual requirements are defined.
-
-## Local development
-
-Prerequisites:
+## Prerequisites
 
 - Node.js 20 or newer
-- Docker Desktop with Docker Compose
+- Managed PostgreSQL with PostGIS and Redis, or Docker Desktop with Docker Compose
+- A Mapbox token for live maps, geocoding, and road-network routing
 
-From the repository root:
+## No-Docker development with Supabase and Upstash
+
+Copy `backend/.env.example` to `backend/.env` and set your managed database, Redis, CORS, Mapbox, and authentication values. Never commit `.env` or paste secrets into source control.
+
+Apply migrations and start the API:
 
 ```powershell
-Set-Location backend
-Copy-Item .env.example .env
+Set-Location C:\Users\USER\Desktop\Projects\Floodline\backend
 npm install
 npm run db:generate
-docker compose up -d postgres redis
 npm run db:migrate
 npm run start:dev
 ```
 
-The API runs at `http://localhost:3000`.
-
-Useful URLs:
-
-- Liveness: `http://localhost:3000/api/v1/health`
-- Readiness: `http://localhost:3000/api/v1/health/ready`
-- Swagger: `http://localhost:3000/docs`
-
-The copied `.env` contains development-only values. Never commit it or place production credentials in `.env.example`.
-
-## Verification commands
-
-Run these from `backend/`:
+Start the persistent worker in a second terminal:
 
 ```powershell
-npm run format:check
-npm run lint
-npm run typecheck
-npm test
-npm run test:e2e
-npm run build
+Set-Location C:\Users\USER\Desktop\Projects\Floodline\backend
+npm run worker
 ```
 
-To run the API and dependencies fully in Docker:
+Start the frontend in a third terminal:
 
 ```powershell
-docker compose --profile full up --build
+Set-Location C:\Users\USER\Desktop\Projects\Floodline\frontend
+npm install
+npm run dev -- --host 127.0.0.1
 ```
 
-## Database changes
+Open:
 
-Database changes must be represented by committed Prisma migrations. The current migrations enable PostGIS and create the authentication/user-account, canonical incident, community flood-report, media metadata, and incident-confirmation tables. Apply migrations locally with:
+- Frontend: `http://127.0.0.1:5173`
+- API liveness: `http://127.0.0.1:3000/api/v1/health`
+- API readiness: `http://127.0.0.1:3000/api/v1/health/ready`
+- Swagger: `http://127.0.0.1:3000/docs`
+
+Docker is optional. If using local dependencies instead:
 
 ```powershell
+Set-Location backend
+docker compose up -d postgres redis
 npm run db:migrate
 ```
 
-Do not edit an already-applied migration. Create a new migration for subsequent schema changes.
+For Supabase's transaction pooler on port `6543`, the application automatically adds Prisma's `pgbouncer=true` settings. If migration locking is problematic, use Supabase's session/direct connection on port `5432` for `npm run db:migrate`.
+
+## Controlled hackathon demo
+
+The demo dataset is synthetic and clearly marked `Demo`; it is not live authority data. It creates three visible Lagos incidents and keeps a fourth route hazard dormant until navigation has started.
+
+Reset the scenario:
+
+```powershell
+Set-Location C:\Users\USER\Desktop\Projects\Floodline\backend
+npm run demo:seed
+```
+
+The frontend has a `Use controlled Lagos demo trip` action when `VITE_DEMO_MODE=true`. It uses the deterministic Lekki Phase 1 to Victoria Island trip so the recording does not depend on the judge's GPS location.
+
+To activate the route hazard after starting navigation:
+
+```powershell
+Set-Location C:\Users\USER\Desktop\Projects\Floodline\backend
+npm run demo:trigger-hazard
+```
+
+The BullMQ worker then evaluates the active route asynchronously using the real PostGIS corridor query and creates a route update when the lower reported-risk alternative meets policy. The frontend notification simulator is explicitly presentation-only and does not send SMS, WhatsApp, or push messages.
+
+Read the full recording sequence and truthful demo wording in [`backend/DEMO_RUNBOOK.md`](backend/DEMO_RUNBOOK.md).
+
+## Production deployment shape
+
+- Frontend: Vercel
+- API: Vercel Functions or a long-lived Node service
+- PostgreSQL/PostGIS: Supabase or another managed provider
+- Redis/BullMQ: Upstash or another managed Redis provider
+- Worker: Railway, Render, Fly.io, or another persistent Node service
+- Media: private S3-compatible storage such as Cloudflare R2
+
+Vercel does not provide a permanent BullMQ worker process. Set `JOBS_PROCESSOR_ENABLED=false` for the Vercel API and run `npm run worker` separately with `JOBS_PROCESSOR_ENABLED=true`.
+
+## Verification commands
+
+Run from `backend/`:
+
+```powershell
+npm run lint
+npm run typecheck
+npm test -- --runInBand
+npm run build
+```
+
+Run from `frontend/`:
+
+```powershell
+npm run typecheck
+npm run build
+```
+
+All database changes must be committed as Prisma migrations. Do not edit an already-applied migration.

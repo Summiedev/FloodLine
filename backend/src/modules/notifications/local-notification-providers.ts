@@ -24,6 +24,8 @@ export class LocalPushNotificationProvider implements PushNotificationProvider {
     this.logger.log(
       {
         provider: 'local-push',
+        mode: 'SIMULATION_ONLY',
+        externalDelivery: false,
         notificationId: message.notificationId,
         recipientCount: recipients.length,
       },
@@ -41,6 +43,8 @@ export class LocalSmsNotificationProvider implements SmsNotificationProvider {
     this.logger.log(
       {
         provider: 'local-sms',
+        mode: 'SIMULATION_ONLY',
+        externalDelivery: false,
         notificationId: message.notificationId,
         phoneNumber: maskPhoneNumber(phoneNumber),
       },
@@ -53,6 +57,8 @@ export class LocalSmsNotificationProvider implements SmsNotificationProvider {
     this.logger.log(
       {
         provider: 'local-sms',
+        mode: 'SIMULATION_ONLY',
+        externalDelivery: false,
         phoneNumber: maskPhoneNumber(phoneNumber),
         expiresAt: expiresAt.toISOString(),
       },
@@ -70,6 +76,8 @@ export class LocalWhatsAppNotificationProvider implements WhatsAppNotificationPr
     this.logger.log(
       {
         provider: 'local-whatsapp',
+        mode: 'SIMULATION_ONLY',
+        externalDelivery: false,
         notificationId: message.notificationId,
         phoneNumber: maskPhoneNumber(phoneNumber),
       },
@@ -82,6 +90,8 @@ export class LocalWhatsAppNotificationProvider implements WhatsAppNotificationPr
     this.logger.log(
       {
         provider: 'local-whatsapp',
+        mode: 'SIMULATION_ONLY',
+        externalDelivery: false,
         phoneNumber: maskPhoneNumber(phoneNumber),
         expiresAt: expiresAt.toISOString(),
       },

@@ -122,6 +122,17 @@ Flood-report coordinates use the same longitude-first WGS 84 convention. `occurr
 
 The API listens on `http://localhost:3000`, Swagger on `http://localhost:3000/docs`, and health endpoints under `/api/v1/health`.
 
+Docker is optional. A managed Supabase Postgres database with PostGIS and an Upstash Redis database are supported through `DATABASE_URL` and `REDIS_URL`. When using Supabase's transaction pooler on port `6543`, the application adds Prisma's `pgbouncer=true` and connection-limit settings automatically. Use a session/direct connection for migration operations if the provider requires it.
+
+For the controlled hackathon scenario, see [`DEMO_RUNBOOK.md`](DEMO_RUNBOOK.md). The repeatable commands are:
+
+```powershell
+npm run demo:seed
+npm run demo:trigger-hazard
+```
+
+`demo:seed` is idempotent, resets the route hazard to expired, clears the controlled route cache, and does not delete user data. `demo:trigger-hazard` activates the stable route hazard and queues navigation/alert evaluation jobs. Seeded incidents are synthetic and must be described as demo data.
+
 ## Verification
 
 ```powershell
