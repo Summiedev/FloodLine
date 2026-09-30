@@ -88,9 +88,34 @@ function monitoringBounds(geometry?: NavigationSession['routeGeometry']): Monito
 
 export function HazardsScreen({ navigate }: { navigate: Navigate }) {
   const plan = loadRoutePlan()
-  const route = plan?.preview.routes.find((item) => item.recommended) ?? plan?.preview.routes[0]
+  const navigationId = sessionStorage.getItem('floodline-navigation-session')
+  const [navigationSession, setNavigationSession] = useState<NavigationSession | null>(null)
+  const [areaIncidents, setAreaIncidents] = useState<MapIncident[]>([])
+  useEffect(() => {
+    if (!navigationId) return
+    let active = true
+    void navigationApi.get(navigationId).then((value) => {
+      if (active) setNavigationSession(value)
+    }).catch(() => undefined)
+    return () => { active = false }
+  }, [navigationId])
+  const updatedRoute = navigationSession?.updates?.find((update) => update.status === 'SENT')?.route
+  const route = updatedRoute ?? plan?.preview.routes.find((item) => item.recommended) ?? plan?.preview.routes[0]
   const hazards = route?.risk.incidents ?? []
-  return <RouteFlowCanvas routeGeometry={route?.geometry} routeCenter={plan?.origin} destinationLabel={plan?.destinationLabel} onClose={() => navigate('route-results')}><section className="route-state-sheet hazards-sheet"><SheetHandle /><h1>{hazards.length} flood hazard{hazards.length === 1 ? '' : 's'} on this route</h1>{hazards.length ? <div className="hazard-list">{hazards.map((hazard) => <HazardItem key={hazard.id} tone={hazard.severity === 'SEVERE' ? 'severe' : 'moderate'} title={hazard.locationName} severity={`${hazard.severity} flooding`} detail={`${hazard.confidenceLabel} confidence · ${Math.round(hazard.distanceMeters)} m from route`} />)}</div> : <p className="sheet-description">No currently known reports were returned for this route.</p>}<div className="sheet-actions"><ScreenButton className="secondary-action" onClick={() => navigate('route-results')}>Back to routes</ScreenButton></div></section></RouteFlowCanvas>
+  const routeMonitoringBounds = useMemo(() => monitoringBounds(route?.geometry), [route?.id, route?.geometry])
+  const routeHazardIds = useMemo(() => new Set(hazards.map((hazard) => hazard.id)), [hazards])
+  useEffect(() => {
+    if (!routeMonitoringBounds) return
+    let active = true
+    void incidentsApi.map(routeMonitoringBounds).then((feed) => {
+      if (active) setAreaIncidents(feed.data.filter((incident) => routeHazardIds.has(incident.id)))
+    }).catch(() => {
+      if (active) setAreaIncidents([])
+    })
+    return () => { active = false }
+  }, [routeMonitoringBounds, routeHazardIds])
+  const incidentLabels = useMemo(() => Object.fromEntries(hazards.map((hazard) => [hazard.id, hazard.locationName])), [hazards])
+  return <RouteFlowCanvas routeGeometry={route?.geometry} routeCenter={plan?.origin} incidents={areaIncidents} incidentLabels={incidentLabels} showWarningMarkers destinationLabel={plan?.destinationLabel} onClose={() => navigate('route-results')}><section className="route-state-sheet hazards-sheet"><SheetHandle /><h1>{hazards.length} flood hazard{hazards.length === 1 ? '' : 's'} on this route</h1>{hazards.length ? <div className="hazard-list">{hazards.map((hazard) => <HazardItem key={hazard.id} tone={hazard.severity === 'SEVERE' ? 'severe' : 'moderate'} title={hazard.locationName} severity={`${hazard.severity} flooding`} detail={`${hazard.confidenceLabel} confidence · ${Math.round(hazard.distanceMeters)} m from route`} />)}</div> : <p className="sheet-description">No currently known reports were returned for this route.</p>}<div className="sheet-actions"><ScreenButton className="secondary-action" onClick={() => navigate('route-results')}>Back to routes</ScreenButton></div></section></RouteFlowCanvas>
 }
 
 export function RerouteScreen({ navigate }: { navigate: Navigate }) {
