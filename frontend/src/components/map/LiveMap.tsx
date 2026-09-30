@@ -400,11 +400,15 @@ export function LiveMap({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current || !focusPoint) return
+    const coordinates: [number, number] = [focusPoint.longitude, focusPoint.latitude]
     if (!officialWarningMarkerRef.current) {
-      officialWarningMarkerRef.current = new mapboxgl.Marker({ element: createOfficialWarningMarker(), anchor: 'bottom' }).addTo(map)
+      officialWarningMarkerRef.current = new mapboxgl.Marker({ element: createOfficialWarningMarker(), anchor: 'bottom' })
+        .setLngLat(coordinates)
+        .addTo(map)
+    } else {
+      officialWarningMarkerRef.current.setLngLat(coordinates)
     }
-    officialWarningMarkerRef.current.setLngLat([focusPoint.longitude, focusPoint.latitude])
-    map.easeTo({ center: [focusPoint.longitude, focusPoint.latitude], zoom: 15, duration: 700 })
+    map.easeTo({ center: coordinates, zoom: 15, duration: 700 })
   }, [focusPoint?.latitude, focusPoint?.longitude])
 
   useEffect(() => {

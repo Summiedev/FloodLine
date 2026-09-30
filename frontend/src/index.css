@@ -222,7 +222,7 @@ input { min-width: 0; border: 0; outline: 0; font: inherit; }
 .route-updated-banner div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .route-updated-banner strong { font-size: 14px; line-height: 20px; }
 .route-updated-banner small { color: #cad5e2; font-size: 12px; line-height: 16px; }
-.route-state-backdrop { position: absolute; z-index: 4; inset: 0; background: rgba(15, 23, 43, .4); animation: backdrop-in .3s ease-out both; }
+.route-state-backdrop { position: absolute; z-index: 4; inset: 0; background: rgba(15, 23, 43, .4); pointer-events: none; animation: backdrop-in .3s ease-out both; }
 .route-state-sheet { position: absolute; z-index: 5; right: 16px; bottom: 16px; left: auto; width: min(560px, calc(100% - 32px)); max-height: 68%; overflow-y: auto; padding: 8px 20px 18px; border-radius: 22px; background: #fff; box-shadow: 0 -10px 20px rgba(0, 0, 0, .1), 0 14px 34px rgba(15, 23, 43, .14); animation: state-sheet-up .4s cubic-bezier(.22, .8, .25, 1) both; scrollbar-width: thin; scrollbar-color: #90a1b9 #f8fafc; }
 .route-state-sheet::-webkit-scrollbar { width: 9px; }
 .route-state-sheet::-webkit-scrollbar-track { background: #f8fafc; }
