@@ -63,6 +63,28 @@ describe('GeocodingService', () => {
     );
   });
 
+  it('keeps nearby-search cache entries separate by proximity', async () => {
+    const harness = createHarness();
+    const first = { longitude: 3.45, latitude: 6.43 };
+    const second = { longitude: 3.55, latitude: 6.53 };
+
+    await harness.service.search('road', first);
+    await harness.service.search('road', second);
+
+    expect(harness.provider.search).toHaveBeenNthCalledWith(
+      1,
+      'road',
+      expect.objectContaining({ proximity: first }),
+    );
+    expect(harness.provider.search).toHaveBeenNthCalledWith(
+      2,
+      'road',
+      expect.objectContaining({ proximity: second }),
+    );
+    const cacheCalls = harness.redisClient.set.mock.calls as Array<[string, ...unknown[]]>;
+    expect(cacheCalls[0]?.[0]).not.toBe(cacheCalls[1]?.[0]);
+  });
+
   it('rejects invalid coordinates and short queries before calling the provider', async () => {
     const harness = createHarness();
 

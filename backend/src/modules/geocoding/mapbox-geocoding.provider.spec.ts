@@ -46,7 +46,11 @@ describe('MapboxGeocodingProvider', () => {
       });
     }) as typeof fetch;
 
-    await expect(provider().search('Admiralty Way', {})).resolves.toEqual([
+    await expect(
+      provider().search('Admiralty Way', {
+        proximity: { longitude: 3.45, latitude: 6.43 },
+      }),
+    ).resolves.toEqual([
       {
         providerPlaceId: 'mapbox-place-id',
         name: 'Admiralty Way',
@@ -56,6 +60,7 @@ describe('MapboxGeocodingProvider', () => {
       },
     ]);
     expect(requestedUrl).toContain('country=ng');
+    expect(requestedUrl).toContain('proximity=3.45%2C6.43');
     expect(requestedUrl).toContain('permanent=true');
     expect(requestedUrl).toContain('access_token=sk.test-token');
   });

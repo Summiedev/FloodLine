@@ -16,7 +16,12 @@ export class GeocodingController {
   @Version('1')
   @ApiOperation({ summary: 'Search normalized locations' })
   search(@Query() query: LocationSearchDto) {
-    return this.service.search(query.q);
+    return this.service.search(
+      query.q,
+      query.lat !== undefined && query.lng !== undefined
+        ? { latitude: query.lat, longitude: query.lng }
+        : undefined,
+    );
   }
 
   @Get('reverse')

@@ -36,7 +36,7 @@ export class GeocodingService {
     this.cacheTtlSeconds = configService.getOrThrow<number>('geocoding.cacheTtlSeconds');
   }
 
-  async search(query: string): Promise<GeocodingPlace[]> {
+  async search(query: string, proximity?: GeocodingCoordinates): Promise<GeocodingPlace[]> {
     const normalizedQuery = query.trim().replace(/\s+/g, ' ');
     if (normalizedQuery.length < 2 || normalizedQuery.length > 200) {
       throw new ApplicationError(
@@ -44,12 +44,16 @@ export class GeocodingService {
         'q must contain between 2 and 200 characters',
       );
     }
-    const cacheKey = this.cacheKey('search', normalizedQuery.toLowerCase());
+    if (proximity) this.validateCoordinates(proximity);
+    const proximityKey = proximity
+      ? `:${proximity.latitude.toFixed(3)},${proximity.longitude.toFixed(3)}`
+      : '';
+    const cacheKey = this.cacheKey('search', `${normalizedQuery.toLowerCase()}${proximityKey}`);
     const cached = await this.readCache<GeocodingPlace[]>(cacheKey);
     if (cached) return cached;
 
     const result = await this.callProvider('search', (signal) =>
-      this.provider.search(normalizedQuery, { signal }),
+      this.provider.search(normalizedQuery, { signal, proximity }),
     );
     if (result.length > 50) {
       throw new ApplicationError(

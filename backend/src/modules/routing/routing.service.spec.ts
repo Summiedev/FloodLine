@@ -100,6 +100,21 @@ describe('RoutingService', () => {
     expect(harness.provider.route).not.toHaveBeenCalled();
   });
 
+  it('separates route cache entries by provider', async () => {
+    const first = createHarness();
+    await first.service.preview(request);
+    const firstCacheCalls = first.redisClient.set.mock.calls as Array<[string, ...unknown[]]>;
+    const firstKey = firstCacheCalls[0]?.[0];
+
+    const second = createHarness();
+    second.provider.name = 'another-provider';
+    await second.service.preview(request);
+    const secondCacheCalls = second.redisClient.set.mock.calls as Array<[string, ...unknown[]]>;
+    const secondKey = secondCacheCalls[0]?.[0];
+
+    expect(firstKey).not.toBe(secondKey);
+  });
+
   it('maps provider failures to a stable dependency error', async () => {
     const harness = createHarness();
     harness.provider.route.mockRejectedValue(new Error('vendor secret and response body'));

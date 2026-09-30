@@ -19,6 +19,7 @@ export interface GeocodingPlace {
 
 export interface GeocodingSearchOptions {
   signal?: AbortSignal;
+  proximity?: GeocodingCoordinates;
 }
 
 export interface GeocodingProvider {

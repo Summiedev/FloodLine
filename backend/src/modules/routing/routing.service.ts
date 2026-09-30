@@ -241,12 +241,20 @@ export class RoutingService {
 
   private cacheKey(input: RoutingRequest): string {
     const normalized = JSON.stringify({
-      origin: input.origin,
-      destination: input.destination,
-      waypoints: input.waypoints ?? [],
+      provider: this.provider.name,
+      origin: this.normalizeCoordinate(input.origin),
+      destination: this.normalizeCoordinate(input.destination),
+      waypoints: (input.waypoints ?? []).map((waypoint) => this.normalizeCoordinate(waypoint)),
       travelMode: input.travelMode,
     });
     return `routing:preview:v2:${createHash('sha256').update(normalized).digest('hex')}`;
+  }
+
+  private normalizeCoordinate(coordinate: RouteCoordinate): RouteCoordinate {
+    return {
+      longitude: Number(coordinate.longitude.toFixed(5)),
+      latitude: Number(coordinate.latitude.toFixed(5)),
+    };
   }
 
   private async readCache(key: string): Promise<RoutePreviewResponse | null> {

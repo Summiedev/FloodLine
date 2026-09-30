@@ -8,3 +8,18 @@ export function screenFromUrl(): Screen {
 export function screenUrl(screen: Screen) {
   return screen === 'landing' ? window.location.pathname : `${window.location.pathname}?screen=${screen}`
 }
+
+const authenticatedScreens: ReadonlySet<Screen> = new Set([
+  'report',
+  'active',
+  'saved-places',
+  'alert-radius',
+  'alert-types',
+  'notification-settings',
+  'alerts',
+  'profile',
+])
+
+export function requiresAuthentication(screen: Screen): boolean {
+  return authenticatedScreens.has(screen)
+}

@@ -7,6 +7,9 @@ const environmentSchema = Joi.object({
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgres', 'postgresql'] })
     .required(),
+  DATABASE_CONNECTION_LIMIT: Joi.number().integer().positive().max(100).default(5),
+  DATABASE_TRANSACTION_MAX_WAIT_MS: Joi.number().integer().positive().max(120_000).default(15_000),
+  DATABASE_TRANSACTION_TIMEOUT_MS: Joi.number().integer().positive().max(120_000).default(15_000),
   REDIS_URL: Joi.string()
     .uri({ scheme: ['redis', 'rediss'] })
     .required(),

@@ -4,4 +4,7 @@ function required(name: 'VITE_API_BASE_URL'): string {
   return value.replace(/\/$/, '');
 }
 
-export const env = { apiBaseUrl: required('VITE_API_BASE_URL') } as const;
+export const env = {
+  apiBaseUrl: required('VITE_API_BASE_URL'),
+  mapboxAccessToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN?.trim() || null,
+} as const;

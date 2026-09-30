@@ -1,5 +1,5 @@
 import type { PointerEvent, ReactNode } from 'react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LandingPage } from './components/landing/LandingPage'
 import { HomeScreen } from './components/map/HomeScreen'
 import { RouteResultsScreen } from './components/route/RouteResultsScreen'
@@ -15,6 +15,9 @@ import { AlertRadiusScreen } from './components/settings/AlertRadiusScreen'
 import { AlertTypesScreen } from './components/settings/AlertTypesScreen'
 import { NotificationSettingsScreen } from './components/settings/NotificationSettingsScreen'
 import { SavedPlacesScreen } from './components/settings/SavedPlacesScreen'
+import { AuthRequiredModal } from './components/auth/AuthRequiredModal'
+import { session } from './api/session'
+import { requiresAuthentication } from './lib/routing'
 
 function ScreenTransition({ screen, animation, children }: { screen: Screen; animation: string; children: ReactNode }) {
   return <div key={screen} className={`screen-transition ${animation}`}>{children}</div>
@@ -52,13 +55,36 @@ function RouteSearchSheet({ navigate, closing, expanded, onClose, onExpand }: { 
 }
 
 function App() {
-  const [screen, setScreen] = useState<Screen>(() => screenFromUrl())
-  const [routeSheet, setRouteSheet] = useState(() => screenFromUrl() === 'route-search')
+  const initialScreen = screenFromUrl()
+  const initialAuthRequired = requiresAuthentication(initialScreen) && !session.accessToken()
+  const [screen, setScreen] = useState<Screen>(() => initialAuthRequired ? 'home' : initialScreen)
+  const [authPrompt, setAuthPrompt] = useState<Screen | null>(() => initialAuthRequired ? initialScreen : null)
+  const [routeSheet, setRouteSheet] = useState(() => !initialAuthRequired && initialScreen === 'route-search')
   const [sheetExpanded, setSheetExpanded] = useState(false)
   const [sheetClosing, setSheetClosing] = useState(false)
   const [screenTransition, setScreenTransition] = useState('screen-enter-forward')
+  const [authReturnTo, setAuthReturnTo] = useState<Screen>('home')
+
+  const requestAuthentication = (target: Screen, returnTo: Screen = 'home') => {
+    setAuthReturnTo(returnTo)
+    setAuthPrompt(target)
+    setRouteSheet(false)
+    setSheetExpanded(false)
+    setScreen('home')
+    window.history.pushState({}, '', screenUrl('home'))
+  }
+
+  useEffect(() => {
+    if (initialAuthRequired) window.history.replaceState({}, '', screenUrl('home'))
+  }, [initialAuthRequired])
 
   const navigate: Navigate = (nextScreen: Screen, options?: NavigateOptions) => {
+    if (requiresAuthentication(nextScreen) && !session.accessToken()) {
+      requestAuthentication(nextScreen)
+      return
+    }
+    if (nextScreen !== 'login' && nextScreen !== 'register') setAuthReturnTo('home')
+    setAuthPrompt(null)
     if (options?.sheet || nextScreen === 'route-search') {
       setSheetClosing(false)
       setRouteSheet(true)
@@ -84,23 +110,26 @@ function App() {
     }, 260)
   }
 
-  if (routeSheet && screen === 'route-search') return <><HomeScreen navigate={navigate} /><RouteSearchSheet navigate={navigate} closing={sheetClosing} expanded={sheetExpanded} onClose={closeRouteSheet} onExpand={() => setSheetExpanded(true)} /></>
-  if (screen === 'landing') return <ScreenTransition screen={screen} animation={screenTransition}><LandingPage navigate={navigate} /></ScreenTransition>
-  if (screen === 'route-search') return <ScreenTransition screen={screen} animation={screenTransition}><RouteSearchScreen navigate={navigate} onBack={() => navigate('home')} /></ScreenTransition>
-  if (screen === 'route-results') return <ScreenTransition screen={screen} animation={screenTransition}><RouteResultsScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'hazards') return <ScreenTransition screen={screen} animation={screenTransition}><HazardsScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'reroute') return <ScreenTransition screen={screen} animation={screenTransition}><RerouteScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'active') return <ScreenTransition screen={screen} animation={screenTransition}><ActiveRouteScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'report') return <ScreenTransition screen={screen} animation={screenTransition}><ReportFlowScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'login') return <ScreenTransition screen={screen} animation={screenTransition}><AuthScreen mode="login" navigate={navigate} /></ScreenTransition>
-  if (screen === 'register') return <ScreenTransition screen={screen} animation={screenTransition}><AuthScreen mode="register" navigate={navigate} /></ScreenTransition>
-  if (screen === 'saved-places') return <ScreenTransition screen={screen} animation={screenTransition}><SavedPlacesScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'alert-radius') return <ScreenTransition screen={screen} animation={screenTransition}><AlertRadiusScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'alert-types') return <ScreenTransition screen={screen} animation={screenTransition}><AlertTypesScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'notification-settings') return <ScreenTransition screen={screen} animation={screenTransition}><NotificationSettingsScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'alerts') return <ScreenTransition screen={screen} animation={screenTransition}><AlertsScreen navigate={navigate} /></ScreenTransition>
-  if (screen === 'profile') return <ScreenTransition screen={screen} animation={screenTransition}><ProfileScreen navigate={navigate} /></ScreenTransition>
-  return <ScreenTransition screen="home" animation={screenTransition}><HomeScreen navigate={navigate} /></ScreenTransition>
+  let page: ReactNode
+  if (routeSheet && screen === 'route-search') page = <><HomeScreen navigate={navigate} onRequireAuth={() => requestAuthentication('report')} /><RouteSearchSheet navigate={navigate} closing={sheetClosing} expanded={sheetExpanded} onClose={closeRouteSheet} onExpand={() => setSheetExpanded(true)} /></>
+  else if (screen === 'landing') page = <ScreenTransition screen={screen} animation={screenTransition}><LandingPage navigate={navigate} /></ScreenTransition>
+  else if (screen === 'route-search') page = <ScreenTransition screen={screen} animation={screenTransition}><RouteSearchScreen navigate={navigate} onBack={() => navigate('home')} /></ScreenTransition>
+  else if (screen === 'route-results') page = <ScreenTransition screen={screen} animation={screenTransition}><RouteResultsScreen navigate={navigate} onRequireAuth={() => requestAuthentication('active', 'route-results')} /></ScreenTransition>
+  else if (screen === 'hazards') page = <ScreenTransition screen={screen} animation={screenTransition}><HazardsScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'reroute') page = <ScreenTransition screen={screen} animation={screenTransition}><RerouteScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'active') page = <ScreenTransition screen={screen} animation={screenTransition}><ActiveRouteScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'report') page = <ScreenTransition screen={screen} animation={screenTransition}><ReportFlowScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'login') page = <ScreenTransition screen={screen} animation={screenTransition}><AuthScreen mode="login" navigate={navigate} afterAuth={authReturnTo} /></ScreenTransition>
+  else if (screen === 'register') page = <ScreenTransition screen={screen} animation={screenTransition}><AuthScreen mode="register" navigate={navigate} afterAuth={authReturnTo} /></ScreenTransition>
+  else if (screen === 'saved-places') page = <ScreenTransition screen={screen} animation={screenTransition}><SavedPlacesScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'alert-radius') page = <ScreenTransition screen={screen} animation={screenTransition}><AlertRadiusScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'alert-types') page = <ScreenTransition screen={screen} animation={screenTransition}><AlertTypesScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'notification-settings') page = <ScreenTransition screen={screen} animation={screenTransition}><NotificationSettingsScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'alerts') page = <ScreenTransition screen={screen} animation={screenTransition}><AlertsScreen navigate={navigate} /></ScreenTransition>
+  else if (screen === 'profile') page = <ScreenTransition screen={screen} animation={screenTransition}><ProfileScreen navigate={navigate} /></ScreenTransition>
+  else page = <ScreenTransition screen="home" animation={screenTransition}><HomeScreen navigate={navigate} onRequireAuth={() => requestAuthentication('report')} /></ScreenTransition>
+
+  return <>{page}{authPrompt && <AuthRequiredModal onClose={() => { setAuthPrompt(null); setAuthReturnTo('home') }} onSignIn={() => { setAuthPrompt(null); navigate('login') }} onRegister={() => { setAuthPrompt(null); navigate('register') }} />}</>
 }
 
 export default App

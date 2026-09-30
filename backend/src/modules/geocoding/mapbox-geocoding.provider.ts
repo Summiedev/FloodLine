@@ -49,6 +49,12 @@ export class MapboxGeocodingProvider implements GeocodingProvider {
     url.searchParams.set('q', query);
     url.searchParams.set('limit', '10');
     if (this.country) url.searchParams.set('country', this.country);
+    if (options.proximity) {
+      url.searchParams.set(
+        'proximity',
+        `${options.proximity.longitude},${options.proximity.latitude}`,
+      );
+    }
     const features = await this.request(url, options.signal);
     return features.map((feature) => this.normalizeFeature(feature)).filter(isPlace);
   }

@@ -12,6 +12,9 @@ export const appConfig = registerAs('app', () => ({
 
 export const databaseConfig = registerAs('database', () => ({
   url: process.env.DATABASE_URL,
+  connectionLimit: Number(process.env.DATABASE_CONNECTION_LIMIT ?? 5),
+  transactionMaxWaitMs: Number(process.env.DATABASE_TRANSACTION_MAX_WAIT_MS ?? 15_000),
+  transactionTimeoutMs: Number(process.env.DATABASE_TRANSACTION_TIMEOUT_MS ?? 15_000),
 }));
 
 export const redisConfig = registerAs('redis', () => ({

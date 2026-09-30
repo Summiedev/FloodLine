@@ -2,11 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { authApi } from '../../api/services'
 import { Icon } from '../ui/Icon'
 import { ScreenButton } from '../ui/ScreenButton'
-import type { Navigate } from '../../types'
+import type { Navigate, Screen } from '../../types'
 
 type AuthMode = 'login' | 'register'
 
-export function AuthScreen({ mode, navigate }: { mode: AuthMode; navigate: Navigate }) {
+export function AuthScreen({ mode, navigate, afterAuth = 'home' }: { mode: AuthMode; navigate: Navigate; afterAuth?: Screen }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,7 +27,7 @@ export function AuthScreen({ mode, navigate }: { mode: AuthMode; navigate: Navig
       if (mode === 'login') await authApi.login(email, password)
       else await authApi.register(name, email, password)
       setStatus(mode === 'login' ? 'Signed in. Opening your map…' : 'Account created. Opening your map…')
-      navigate('home')
+      navigate(afterAuth)
     } catch { setError(mode === 'login' ? 'Those sign-in details were not accepted.' : 'Could not create your account. Check your details and try again.') }
     finally { setSubmitting(false) }
   }
