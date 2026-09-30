@@ -7,6 +7,7 @@ import {
   alertPreferenceConfig,
   authConfig,
   databaseConfig,
+  demoConfig,
   docsConfig,
   floodReportConfig,
   incidentConfidenceConfig,
@@ -52,6 +53,7 @@ import { RoutingModule } from './modules/routing/routing.module';
 import { SavedPlacesModule } from './modules/saved-places/saved_places.module';
 import { UsersModule } from './modules/users/users.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { DemoModule } from './modules/demo/demo.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 
 @Module({
@@ -65,6 +67,7 @@ import { MetricsModule } from './common/metrics/metrics.module';
         alertPreferenceConfig,
         authConfig,
         databaseConfig,
+        demoConfig,
         docsConfig,
         floodReportConfig,
         incidentConfidenceConfig,
@@ -120,6 +123,7 @@ import { MetricsModule } from './common/metrics/metrics.module';
     CommunityImpactModule,
     IntegrationsModule,
     JobsModule.forRoot(),
+    DemoModule,
     MetricsModule,
   ],
   providers: [

@@ -293,6 +293,14 @@ input { min-width: 0; border: 0; outline: 0; font: inherit; }
 .demo-navigation-note span { color: #8a6a2b; }
 .demo-navigation-progress { height: 4px; margin-top: 4px; overflow: hidden; border-radius: 999px; background: #f2dfb4; }
 .demo-navigation-progress i { display: block; height: 100%; border-radius: inherit; background: #d38b13; transition: width .8s linear; }
+.demo-trigger-card { display: grid; gap: 9px; margin-top: 10px; padding: 11px 12px; border: 1px solid #b9d8ea; border-radius: 12px; background: #f4fbfe; color: var(--deep-water); font-size: 11px; line-height: 16px; }
+.demo-trigger-card > div { display: grid; gap: 2px; }
+.demo-trigger-card strong { font-size: 11px; }
+.demo-trigger-card span { color: var(--muted); }
+.demo-trigger-button { width: 100%; min-height: 38px; border-radius: 10px; background: var(--deep-water); color: #fff; font-size: 12px; font-weight: 800; }
+.demo-trigger-button:hover, .demo-trigger-button:focus-visible { background: var(--water-blue); }
+.demo-trigger-button:disabled { cursor: wait; opacity: .65; }
+.demo-trigger-card small { color: #b45309; font-size: 10px; }
 .active-hazard-summary { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 11px 12px; border: 1px solid #dbe6f2; border-radius: 12px; background: #f8fbfd; }
 .active-hazard-summary.has-hazards { border-color: rgba(245,158,66,.35); background: #fffaf2; }
 .active-hazard-summary-dot { width: 9px; height: 9px; flex: none; margin-top: 4px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.12); }

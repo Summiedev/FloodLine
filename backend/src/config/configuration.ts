@@ -37,6 +37,11 @@ export const docsConfig = registerAs('docs', () => ({
   enabled: process.env.SWAGGER_ENABLED !== 'false',
 }));
 
+export const demoConfig = registerAs('demo', () => ({
+  enabled: process.env.DEMO_MODE === 'true' ||
+    (process.env.DEMO_MODE === undefined && process.env.NODE_ENV !== 'production'),
+}));
+
 export const metricsConfig = registerAs('metrics', () => ({
   enabled: process.env.METRICS_ENABLED !== 'false',
   accessToken: process.env.METRICS_ACCESS_TOKEN,

@@ -30,6 +30,8 @@ $env:WHATSAPP_NOTIFICATION_PROVIDER = 'local'
 
 Set these before starting the API/worker if the `.env` file selects a real provider.
 
+Set `DEMO_MODE=true` in the backend `.env` to show the in-app `Trigger flood hazard` button during active navigation. The button is authenticated, rate-limited, and only activates the fixed seeded hazard; it does not create a real public flood report.
+
 ## Reset the controlled dataset
 
 Run this after migrations and before recording:
@@ -77,6 +79,8 @@ For a polished video, record two short takes and edit them together. This avoids
    cd C:\Users\USER\Desktop\Projects\Floodline\backend
    npm run demo:trigger-hazard
    ```
+
+   Alternatively, when `DEMO_MODE=true`, click `Trigger flood hazard` in the active-navigation panel. The button performs the same backend activation and queues the same navigation and alert evaluation jobs.
 
 5. Keep the active-navigation screen open. The worker evaluates the route asynchronously, finds the hazard with PostGIS, requests alternatives, and creates a route update when the lower reported-risk alternative meets the configured duration policy.
 6. The active screen runs a clearly labeled `Demo GPS simulation` when the frontend has `VITE_DEMO_MODE=true`. The blue vehicle marker moves slowly along the real route geometry and the displayed ETA counts down from the provider's route duration. The default simulation duration is 1800 seconds; adjust `VITE_DEMO_NAVIGATION_SECONDS` if needed. This is presentation-only; production mode uses browser/device GPS instead.

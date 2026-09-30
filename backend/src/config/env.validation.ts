@@ -147,6 +147,7 @@ const environmentSchema = Joi.object({
   SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
   METRICS_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
   METRICS_ACCESS_TOKEN: Joi.string().min(32).optional(),
+  DEMO_MODE: Joi.boolean().truthy('true').falsy('false').default(false),
   JOBS_PROCESSOR_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
 }).unknown(true);
 
