@@ -71,6 +71,7 @@ input { min-width: 0; border: 0; outline: 0; font: inherit; }
 .live-destination-marker { display: block; width: 24px; height: 30px; border: 3px solid #fff; border-radius: 14px 14px 14px 3px; background: #e35d6a; box-shadow: 0 4px 12px rgba(153, 27, 46, .3); transform: rotate(-45deg); }
 .live-destination-marker::after { position: absolute; top: 5px; left: 5px; width: 8px; height: 8px; border: 3px solid #fff; border-radius: 50%; content: ''; }
 .live-incident-warning-anchor { position: relative; width: 1px; height: 1px; cursor: pointer; }
+.live-official-warning-anchor { position: relative; width: 1px; height: 1px; pointer-events: none; }
 .live-incident-warning-tooltip { position: absolute; bottom: 38px; left: 50%; max-width: 210px; padding: 7px 10px; overflow: hidden; border: 1px solid rgba(245, 158, 66, .3); border-radius: 10px; background: rgba(255, 255, 255, .97); box-shadow: 0 7px 18px rgba(15, 23, 43, .16); color: var(--ink); font-size: 10px; font-weight: 800; line-height: 13px; text-align: center; text-overflow: ellipsis; white-space: nowrap; transform: translateX(-50%); }
 .live-incident-warning-pin { position: relative; display: grid; width: 26px; height: 32px; place-items: center; border: 3px solid #fff; border-radius: 16px 16px 16px 4px; box-shadow: 0 4px 12px rgba(15, 23, 43, .24); transform: rotate(-45deg); }
 .live-incident-warning-pin::after { position: absolute; inset: 5px; border: 2px solid rgba(255, 255, 255, .8); border-radius: 50%; content: ''; }

@@ -112,6 +112,22 @@ function createIncidentWarningMarker(incident: MapIncident, label?: string): HTM
   return anchor
 }
 
+function createOfficialWarningMarker(): HTMLElement {
+  const anchor = document.createElement('div')
+  anchor.className = 'live-official-warning-anchor'
+  anchor.setAttribute('aria-label', 'Official warning area')
+  const tooltip = document.createElement('span')
+  tooltip.className = 'live-incident-warning-tooltip'
+  tooltip.textContent = 'Official warning area'
+  const pin = document.createElement('span')
+  pin.className = 'live-incident-warning-pin live-incident-warning-pin-severe'
+  const pinDot = document.createElement('span')
+  pinDot.className = 'live-incident-warning-pin-dot'
+  pin.appendChild(pinDot)
+  anchor.append(tooltip, pin)
+  return anchor
+}
+
 function fitRouteBounds(map: MapboxMap, routes: RouteGeometry[], padding: RouteFitPadding = 80): void {
   const coordinates = routes.flatMap((route) => route.geometry.coordinates).filter((point) => point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1]))
   if (coordinates.length < 2) return
@@ -168,6 +184,7 @@ export function LiveMap({
   const mapRef = useRef<MapboxMap | null>(null)
   const navigationMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const destinationMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const officialWarningMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const incidentWarningMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const loadedRef = useRef(false)
   const navigationFollowSuspendedRef = useRef(false)
@@ -333,6 +350,8 @@ export function LiveMap({
       navigationMarkerRef.current = null
       destinationMarkerRef.current?.remove()
       destinationMarkerRef.current = null
+      officialWarningMarkerRef.current?.remove()
+      officialWarningMarkerRef.current = null
       incidentWarningMarkersRef.current.forEach((marker) => marker.remove())
       incidentWarningMarkersRef.current.clear()
       map.remove()
@@ -381,6 +400,10 @@ export function LiveMap({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !loadedRef.current || !focusPoint) return
+    if (!officialWarningMarkerRef.current) {
+      officialWarningMarkerRef.current = new mapboxgl.Marker({ element: createOfficialWarningMarker(), anchor: 'bottom' }).addTo(map)
+    }
+    officialWarningMarkerRef.current.setLngLat([focusPoint.longitude, focusPoint.latitude])
     map.easeTo({ center: [focusPoint.longitude, focusPoint.latitude], zoom: 15, duration: 700 })
   }, [focusPoint?.latitude, focusPoint?.longitude])
 
