@@ -43,13 +43,16 @@ npm run demo:seed
 
 This creates three active Lagos incidents, one active controlled official warning, and resets the route hazard to `EXPIRED`. It is idempotent and does not delete user data. The warning and incidents are demo records, not live authority data.
 
-The route scenario uses:
+The inland route scenario uses:
 
-- Origin: `3.3792, 6.5244` (longitude, latitude)
-- Destination: `3.4219, 6.4281` (longitude, latitude)
+- Origin: `3.3515, 6.6018` (longitude, latitude) — Ikeja
+- Destination: `3.3788, 6.5088` (longitude, latitude) — Yaba
 - Travel mode: `DRIVING`
 
-The first route is normally faster. The second route is normally a little longer. The dormant hazard point is placed on the faster route only.
+The route alternatives are evaluated from the provider response. In the current
+seeded Mapbox scenario, the dormant hazard is on Route B and Route A is the
+lower reported-risk alternative. Do not assume route ordering is stable across
+providers; read the returned risk fields.
 
 ## Recording sequence
 
@@ -66,7 +69,7 @@ For a polished video, record two short takes and edit them together. This avoids
    npm run demo:trigger-hazard
    ```
 
-5. Click `Show routes`. The faster route should show an active report while the alternative should show lower reported flood risk.
+5. Click `Show routes`. Route B should show the seeded severe report while Route A should show lower reported flood risk.
 
 ### Take B: active-navigation update
 

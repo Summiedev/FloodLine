@@ -5,8 +5,8 @@ import { redisConnectionFromUrl } from '../src/infrastructure/redis/redis.connec
 
 const DEMO_HAZARD_ID = '10000000-0000-4000-8000-000000000010';
 const DEMO_WARNING_ID = '10000000-0000-4000-8000-000000000021';
-const DEMO_ORIGIN = { longitude: 3.3792, latitude: 6.5244 };
-const DEMO_DESTINATION = { longitude: 3.4219, latitude: 6.4281 };
+const DEMO_ORIGIN = { longitude: 3.3515, latitude: 6.6018 };
+const DEMO_DESTINATION = { longitude: 3.3788, latitude: 6.5088 };
 
 type DemoIncident = {
   id: string;
@@ -27,10 +27,10 @@ const demoIncidents: DemoIncident[] = [
     id: '10000000-0000-4000-8000-000000000011',
     incidentType: 'MODERATE_FLOODING',
     severity: 'MODERATE',
-    longitude: 3.4055,
-    latitude: 6.5205,
-    locationName: 'Demo · Admiralty Way, Lekki Phase 1',
-    description: 'Demo data: standing water is slowing traffic near the junction.',
+    longitude: 3.3435,
+    latitude: 6.5555,
+    locationName: 'Demo · Oshodi Interchange',
+    description: 'Demo data: standing water is slowing traffic near the inland interchange.',
     confidenceScore: 0.82,
     confidenceLabel: 'HIGH',
     confirmationCount: 8,
@@ -40,10 +40,10 @@ const demoIncidents: DemoIncident[] = [
     id: '10000000-0000-4000-8000-000000000012',
     incidentType: 'BLOCKED_DRAIN',
     severity: 'MODERATE',
-    longitude: 3.355,
-    latitude: 6.49,
-    locationName: 'Demo · Ahmadu Bello Way',
-    description: 'Demo data: a blocked drain is causing water to collect beside the road.',
+    longitude: 3.348,
+    latitude: 6.615,
+    locationName: 'Demo · Ikeja GRA access road',
+    description: 'Demo data: a blocked drain is causing water to collect beside the access road.',
     confidenceScore: 0.68,
     confidenceLabel: 'MEDIUM',
     confirmationCount: 4,
@@ -53,9 +53,9 @@ const demoIncidents: DemoIncident[] = [
     id: '10000000-0000-4000-8000-000000000013',
     incidentType: 'BLOCKED_ROAD',
     severity: 'HIGH',
-    longitude: 3.426,
-    latitude: 6.495,
-    locationName: 'Demo · Ikoyi access road',
+    longitude: 3.394,
+    latitude: 6.588,
+    locationName: 'Demo · Ojota interchange',
     description: 'Demo data: a partially blocked lane is causing vehicles to merge.',
     confidenceScore: 0.74,
     confidenceLabel: 'MEDIUM',
@@ -146,11 +146,11 @@ async function upsertOfficialWarning(now: Date, expiresAt: Date): Promise<void> 
       ${DEMO_WARNING_ID}::uuid,
       'FloodLine Demo Authority',
       'floodline-demo-warning-001',
-      'Controlled advisory: flooding near coastal routes',
-      'Demo-only official warning covering the Lagos route scenario. Use it to demonstrate how an authority warning appears alongside community reports.',
+      'Controlled advisory: flooding near inland Lagos routes',
+      'Demo-only official warning covering the Ikeja to Yaba route scenario. Use it to demonstrate how an authority warning appears alongside community reports.',
       CAST('SEVERE' AS "IncidentSeverity"),
       CAST('ACTIVE' AS "OfficialWarningStatus"),
-      ST_GeomFromText('POLYGON((3.36 6.43, 3.44 6.43, 3.44 6.54, 3.36 6.54, 3.36 6.43))', 4326),
+      ST_GeomFromText('POLYGON((3.33 6.49, 3.40 6.49, 3.40 6.62, 3.33 6.62, 3.33 6.49))', 4326),
       ${issuedAt},
       ${issuedAt},
       ${expiresAt},
@@ -200,12 +200,12 @@ async function main(): Promise<void> {
     id: DEMO_HAZARD_ID,
     incidentType: 'SEVERE_FLOODING',
     severity: 'SEVERE',
-    // This point sits on the faster Mapbox route for the documented demo trip:
-    // 3.3792,6.5244 (Lekki Phase 1) -> 3.4219,6.4281 (Victoria Island).
-    longitude: 3.375308,
-    latitude: 6.475396,
-    locationName: 'Demo · flood hazard on the fast route',
-    description: 'Demo trigger: reported water is near vehicle bonnet level on this route.',
+    // This point sits on the faster Mapbox route for the documented inland demo trip:
+    // 3.3515,6.6018 (Ikeja) -> 3.3788,6.5088 (Yaba).
+    longitude: 3.378719,
+    latitude: 6.587862,
+    locationName: 'Demo · flood hazard on the fast Ikeja–Yaba route',
+    description: 'Demo trigger: reported water is near vehicle bonnet level near the inland corridor.',
     confidenceScore: 0.9,
     confidenceLabel: 'HIGH',
     confirmationCount: 14,

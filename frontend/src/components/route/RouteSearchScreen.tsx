@@ -26,9 +26,9 @@ function locationError(code?: number): string {
 }
 
 const demoTrip = {
-  origin: { longitude: 3.3792, latitude: 6.5244 },
-  destination: { longitude: 3.4219, latitude: 6.4281 },
-  destinationLabel: 'Victoria Island, Lagos',
+  origin: { longitude: 3.3515, latitude: 6.6018 },
+  destination: { longitude: 3.3788, latitude: 6.5088 },
+  destinationLabel: 'Yaba, Lagos',
 }
 
 function LocationResultRow({ result, onSelect }: { result: LocationResult; onSelect: (result: LocationResult) => void }) {
@@ -99,8 +99,8 @@ export function RouteSearchScreen({ navigate, onBack, sheet = false }: { navigat
 
   const useDemoTrip = () => {
     setOrigin(demoTrip.origin)
-    setOriginLabel('Demo start · Lekki Phase 1')
-    setDestination({ providerPlaceId: 'demo-victoria-island', name: 'Victoria Island', formattedAddress: demoTrip.destinationLabel, coordinates: demoTrip.destination })
+    setOriginLabel('Demo start · Ikeja')
+    setDestination({ providerPlaceId: 'demo-yaba', name: 'Yaba', formattedAddress: demoTrip.destinationLabel, coordinates: demoTrip.destination })
     setDestinationQuery(demoTrip.destinationLabel)
     setResults([])
     setError('')

@@ -1,5 +1,18 @@
 # FloodLine demo video voiceover
 
+The Remotion composition at `demo-video/` is the deterministic visual version
+of this script. It uses the seeded inland Ikeja–Yaba scenario rather than live
+provider data, so the hackathon recording is repeatable.
+
+Render it with:
+
+```powershell
+Set-Location C:\Users\USER\Desktop\Projects\Floodline\demo-video
+npm install
+npm run typecheck
+npm run render
+```
+
 Suggested length: 75–90 seconds. Keep the seeded `Demo` labels visible in
 the recording. This script describes reported risk, not guaranteed safety.
 
@@ -30,9 +43,9 @@ hazard, then show the route comparison.
 
 **Voiceover:**
 
-> I’m travelling from Lekki Phase 1 toward Victoria Island. The fastest route
-> is not always the best-informed route. FloodLine detects a reported hazard
-> along that path and presents an alternative with lower reported flood risk.
+> I’m travelling from Ikeja toward Yaba. The fastest route
+> is not always the best-informed route. In this seeded scenario, Route B has
+> a reported hazard while Route A has lower reported flood risk.
 
 ## 0:38–0:55 — The journey changes
 

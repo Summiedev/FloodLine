@@ -94,7 +94,7 @@ Set-Location C:\Users\USER\Desktop\Projects\Floodline\backend
 npm run demo:seed
 ```
 
-The frontend has a `Use controlled Lagos demo trip` action when `VITE_DEMO_MODE=true`. It uses the deterministic Lekki Phase 1 to Victoria Island trip so the recording does not depend on the judge's GPS location.
+The frontend has a `Use controlled Lagos demo trip` action when `VITE_DEMO_MODE=true`. It uses the deterministic inland Ikeja to Yaba trip so the recording does not depend on the judge's GPS location or a coastal road.
 
 To activate the route hazard after starting navigation:
 
@@ -106,6 +106,20 @@ npm run demo:trigger-hazard
 The BullMQ worker then evaluates the active route asynchronously using the real PostGIS corridor query and creates a route update when the lower reported-risk alternative meets policy. The frontend notification simulator is explicitly presentation-only and does not send SMS, WhatsApp, or push messages.
 
 Read the full recording sequence and truthful demo wording in [`backend/DEMO_RUNBOOK.md`](backend/DEMO_RUNBOOK.md).
+
+The Remotion presentation video uses the same controlled seeded scenario and
+can be rendered with:
+
+```powershell
+Set-Location C:\Users\USER\Desktop\Projects\Floodline\demo-video
+npm install
+npm run typecheck
+npm run render
+```
+
+The MP4 is written to `demo-video/out/floodline-demo.mp4`. It is a deterministic
+presentation artifact; it does not send external notifications or claim that
+the seeded records are live authority data.
 
 ## Production deployment shape
 

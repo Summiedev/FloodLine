@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ApiError } from '../../api/client'
 import { demoApi, incidentsApi, navigationApi, warningsApi } from '../../api/services'
 import type { Coordinate, MapIncident, NavigationSession, OfficialWarning } from '../../api/types'
 import { env } from '../../config/env'
 import type { Navigate } from '../../types'
 import { ScreenButton } from '../ui/ScreenButton'
 import { ActiveRouteSheet, HazardItem, RouteFlowCanvas, SheetHandle } from './RoutePrimitives'
-import { loadRoutePlan } from './route-state'
+import { loadHazardsRouteId, loadRoutePlan, saveHazardsRouteId } from './route-state'
 
 type DemoRoutePath = {
   points: Coordinate[]
@@ -88,6 +89,7 @@ function monitoringBounds(geometry?: NavigationSession['routeGeometry']): Monito
 
 export function HazardsScreen({ navigate }: { navigate: Navigate }) {
   const plan = loadRoutePlan()
+  const selectedRouteId = loadHazardsRouteId()
   const navigationId = sessionStorage.getItem('floodline-navigation-session')
   const [navigationSession, setNavigationSession] = useState<NavigationSession | null>(null)
   const [areaIncidents, setAreaIncidents] = useState<MapIncident[]>([])
@@ -100,7 +102,9 @@ export function HazardsScreen({ navigate }: { navigate: Navigate }) {
     return () => { active = false }
   }, [navigationId])
   const updatedRoute = navigationSession?.updates?.find((update) => update.status === 'SENT')?.route
-  const route = updatedRoute ?? plan?.preview.routes.find((item) => item.recommended) ?? plan?.preview.routes[0]
+  const route = updatedRoute ?? plan?.preview.routes.find((item) => item.id === selectedRouteId) ?? plan?.preview.routes.find((item) => item.recommended) ?? plan?.preview.routes[0]
+  const routeIndex = route && plan ? plan.preview.routes.findIndex((item) => item.id === route.id) : 0
+  const routeLabel = `Route ${String.fromCharCode(65 + Math.max(0, routeIndex))}`
   const hazards = route?.risk.incidents ?? []
   const routeMonitoringBounds = useMemo(() => monitoringBounds(route?.geometry), [route?.id, route?.geometry])
   const routeHazardIds = useMemo(() => new Set(hazards.map((hazard) => hazard.id)), [hazards])
@@ -115,7 +119,7 @@ export function HazardsScreen({ navigate }: { navigate: Navigate }) {
     return () => { active = false }
   }, [routeMonitoringBounds, routeHazardIds])
   const incidentLabels = useMemo(() => Object.fromEntries(hazards.map((hazard) => [hazard.id, hazard.locationName])), [hazards])
-  return <RouteFlowCanvas routeGeometry={route?.geometry} routeCenter={plan?.origin} incidents={areaIncidents} incidentLabels={incidentLabels} showWarningMarkers destinationLabel={plan?.destinationLabel} onClose={() => navigate('route-results')}><section className="route-state-sheet hazards-sheet"><SheetHandle /><h1>{hazards.length} flood hazard{hazards.length === 1 ? '' : 's'} on this route</h1>{hazards.length ? <div className="hazard-list">{hazards.map((hazard) => <HazardItem key={hazard.id} tone={hazard.severity === 'SEVERE' ? 'severe' : 'moderate'} title={hazard.locationName} severity={`${hazard.severity} flooding`} detail={`${hazard.confidenceLabel} confidence · ${Math.round(hazard.distanceMeters)} m from route`} />)}</div> : <p className="sheet-description">No currently known reports were returned for this route.</p>}<div className="sheet-actions"><ScreenButton className="secondary-action" onClick={() => navigate('route-results')}>Back to routes</ScreenButton></div></section></RouteFlowCanvas>
+  return <RouteFlowCanvas routeGeometry={route?.geometry} routeCenter={plan?.origin} incidents={areaIncidents} incidentLabels={incidentLabels} showWarningMarkers destinationLabel={plan?.destinationLabel} onClose={() => navigate('route-results')}><section className="route-state-sheet hazards-sheet"><SheetHandle /><h1>{routeLabel}: {hazards.length} flood hazard{hazards.length === 1 ? '' : 's'}</h1>{hazards.length ? <div className="hazard-list">{hazards.map((hazard) => <HazardItem key={hazard.id} tone={hazard.severity === 'SEVERE' ? 'severe' : 'moderate'} title={hazard.locationName} severity={`${hazard.severity} flooding`} detail={`${hazard.confidenceLabel} confidence · ${Math.round(hazard.distanceMeters)} m from route`} />)}</div> : <p className="sheet-description">No currently known reports were returned for {routeLabel}. This is the lower reported-risk alternative in the current scenario.</p>}<div className="sheet-actions"><ScreenButton className="secondary-action" onClick={() => navigate('route-results')}>Back to routes</ScreenButton></div></section></RouteFlowCanvas>
 }
 
 export function RerouteScreen({ navigate }: { navigate: Navigate }) {
@@ -140,7 +144,7 @@ export function ActiveRouteScreen({ navigate }: { navigate: Navigate }) {
     return () => navigator.geolocation.clearWatch(watchId)
   }, [])
   const stop = () => { if (!session) return; navigationApi.stop(session.id).then(() => navigate('home')).catch(() => setError('Navigation could not be ended.')) }
-  const triggerDemoHazard = async () => { setDemoTriggerState('triggering'); setDemoTriggerError(''); try { await demoApi.triggerHazard(); setDemoTriggerState('triggered') } catch { setDemoTriggerState('error'); setDemoTriggerError('Could not activate the demo hazard. Run the demo seed and check the API.') } }
+  const triggerDemoHazard = async () => { setDemoTriggerState('triggering'); setDemoTriggerError(''); try { await demoApi.triggerHazard(); setDemoTriggerState('triggered') } catch (requestError) { setDemoTriggerState('error'); if (requestError instanceof ApiError && requestError.status === 401) setDemoTriggerError('Sign in again to use the demo control.'); else if (requestError instanceof ApiError && requestError.status === 404) setDemoTriggerError('Demo mode is disabled or the seeded hazard is missing. Restart the API with DEMO_MODE=true, then run npm run demo:seed.'); else if (requestError instanceof ApiError && requestError.status === 429) setDemoTriggerError('Demo control is cooling down. Try again in a moment.'); else setDemoTriggerError('The API could not activate the demo hazard. Check that the backend and worker are running.') } }
   const latestUpdate = session?.updates?.find((update) => update.status === 'SENT')
   const fallbackRoute = plan?.preview.routes.find((item) => item.id === session?.routeId) ?? plan?.preview.routes.find((item) => item.recommended) ?? plan?.preview.routes[0]
   const activeRoute = latestUpdate?.route ?? fallbackRoute
@@ -192,5 +196,5 @@ export function ActiveRouteScreen({ navigate }: { navigate: Navigate }) {
     ? Math.max(60, Math.round(routeDurationSeconds * (1 - demoProgress)))
     : routeDurationSeconds
   if (error) return <main className="screen-shell settings-screen"><section className="settings-state"><p>{error}</p><ScreenButton onClick={() => navigate('route-search')}>Plan a route</ScreenButton></section></main>
-  return <RouteFlowCanvas noOverlay routeGeometry={routeGeometry} routeCenter={displayedLocation} destination={session?.destination ?? plan?.destination} userLocation={displayedLocation} incidents={liveIncidents} incidentLabels={incidentLabels} navigationMarker userHeading={displayedHeading} destinationLabel={plan?.destinationLabel ?? 'your destination'} durationSeconds={displayedDurationSeconds} distanceMeters={routeDistanceMeters} statusLabel={latestUpdate ? 'Route updated' : 'Route active'} routeUpdated={Boolean(latestUpdate)} updateMessage={latestUpdate ? 'Avoiding a reported flood hazard on your route.' : undefined} demoSimulation={env.demoMode}><ActiveRouteSheet durationSeconds={displayedDurationSeconds} distanceMeters={routeDistanceMeters} hazardCount={activeRoute?.risk.affectingIncidentCount ?? 0} monitoringIncidentCount={liveIncidents.length} officialWarning={liveWarning} riskIncidents={activeRoute?.risk.incidents} hazardAheadLabel={hazardAheadLabel} routeUpdated={Boolean(latestUpdate)} demoSimulation={env.demoMode} speedReduced={demoSpeedMultiplier < 1} progressPercent={env.demoMode ? demoProgress * 100 : undefined} demoTriggerState={demoTriggerState} demoTriggerError={demoTriggerError} onTriggerDemoHazard={env.demoMode ? triggerDemoHazard : undefined} onViewHazards={() => navigate('hazards')} onReportHazard={() => navigate('report')} onStop={stop} /></RouteFlowCanvas>
+  return <RouteFlowCanvas noOverlay routeGeometry={routeGeometry} routeCenter={displayedLocation} destination={session?.destination ?? plan?.destination} userLocation={displayedLocation} incidents={liveIncidents} incidentLabels={incidentLabels} navigationMarker userHeading={displayedHeading} destinationLabel={plan?.destinationLabel ?? 'your destination'} durationSeconds={displayedDurationSeconds} distanceMeters={routeDistanceMeters} statusLabel={latestUpdate ? 'Route updated' : 'Route active'} routeUpdated={Boolean(latestUpdate)} updateMessage={latestUpdate ? 'Avoiding a reported flood hazard on your route.' : undefined} demoSimulation={env.demoMode}><ActiveRouteSheet durationSeconds={displayedDurationSeconds} distanceMeters={routeDistanceMeters} hazardCount={activeRoute?.risk.affectingIncidentCount ?? 0} monitoringIncidentCount={liveIncidents.length} officialWarning={liveWarning} riskIncidents={activeRoute?.risk.incidents} hazardAheadLabel={hazardAheadLabel} routeUpdated={Boolean(latestUpdate)} demoSimulation={env.demoMode} speedReduced={demoSpeedMultiplier < 1} progressPercent={env.demoMode ? demoProgress * 100 : undefined} demoTriggerState={demoTriggerState} demoTriggerError={demoTriggerError} onTriggerDemoHazard={env.demoMode ? triggerDemoHazard : undefined} onViewHazards={() => { if (activeRoute?.id) saveHazardsRouteId(activeRoute.id); navigate('hazards') }} onReportHazard={() => navigate('report')} onStop={stop} /></RouteFlowCanvas>
 }
