@@ -1,0 +1,11 @@
+# Local/demo-only files. They are not required by the Vercel HTTP function.
+.env
+.env.*
+DEMO_RUNBOOK.md
+docs/
+prisma/demo-seed.ts
+prisma/demo-trigger-hazard.ts
+test/
+jest.config.ts
+Dockerfile
+docker-compose.yml
