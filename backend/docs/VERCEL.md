@@ -28,11 +28,11 @@ MAPBOX_GEOCODING_COUNTRY=ng
 MAPBOX_GEOCODING_PERMANENT=true
 
 MEDIA_STORAGE_PROVIDER=s3
-S3_ENDPOINT=https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
-S3_REGION=auto
-S3_BUCKET=floodline-media
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
+S3_ENDPOINT=<s3-compatible-endpoint>
+S3_REGION=<provider-region>
+S3_BUCKET=<private-bucket-name>
+S3_ACCESS_KEY_ID=<runtime-value>
+S3_SECRET_ACCESS_KEY=<runtime-value>
 
 PUSH_NOTIFICATION_PROVIDER=fcm
 FIREBASE_PROJECT_ID=...
@@ -104,7 +104,7 @@ Mapbox plan and storage entitlement before launch.
 
 ### Cloudflare R2: report photos
 
-1. Create an R2 bucket named `floodline-media`.
+1. Create a private R2 bucket and keep its name only in the deployment environment.
 2. Keep the bucket private.
 3. Create an R2 S3 API token limited to **Object Read & Write** on that bucket.
 4. Copy the endpoint, Access Key ID, and Secret Access Key into the `S3_*`

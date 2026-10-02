@@ -55,11 +55,11 @@ For production report-photo storage, configure private S3-compatible storage:
 
 ```env
 MEDIA_STORAGE_PROVIDER=s3
-S3_ENDPOINT=https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
-S3_REGION=auto
-S3_BUCKET=floodline-media
-S3_ACCESS_KEY_ID=your_access_key
-S3_SECRET_ACCESS_KEY=your_secret_key
+S3_ENDPOINT=<s3-compatible-endpoint>
+S3_REGION=<provider-region>
+S3_BUCKET=<private-bucket-name>
+S3_ACCESS_KEY_ID=<runtime-value>
+S3_SECRET_ACCESS_KEY=<runtime-value>
 ```
 
 If Firebase or Twilio providers are enabled, add their credentials from
