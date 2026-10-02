@@ -28,7 +28,7 @@ changing them.
 NODE_ENV=production
 DATABASE_URL=postgresql://...
 REDIS_URL=rediss://...
-REDIS_PREFIX=floodline-production
+REDIS_PREFIX=<unique-deployment-prefix>
 CORS_ORIGINS=https://YOUR-FRONTEND-DOMAIN.vercel.app
 JWT_ACCESS_SECRET=at-least-32-random-characters
 NOTIFICATION_VERIFICATION_SECRET=at-least-32-different-random-characters

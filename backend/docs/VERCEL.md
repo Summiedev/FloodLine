@@ -13,7 +13,7 @@ Production environment. Never commit any of them to Git.
 NODE_ENV=production
 DATABASE_URL=postgresql://...
 REDIS_URL=rediss://...
-REDIS_PREFIX=floodline-production
+REDIS_PREFIX=<unique-deployment-prefix>
 JWT_ACCESS_SECRET=<random 32+ character value>
 NOTIFICATION_VERIFICATION_SECRET=<different random 32+ character value>
 NOTIFICATION_DEVICE_TOKEN_ENCRYPTION_KEY=<different random 32+ character value>
