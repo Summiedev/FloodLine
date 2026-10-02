@@ -7,7 +7,7 @@ import { QUEUE_NAMES } from '../src/infrastructure/queue/queue.constants';
 import { NAVIGATION_EVALUATE_INCIDENT_JOB } from '../src/modules/navigation/navigation.constants';
 import { ALERT_EVALUATE_INCIDENT_JOB } from '../src/modules/notifications/notification.constants';
 
-const DEMO_HAZARD_ID = '10000000-0000-4000-8000-000000000010';
+const DEMO_HAZARD_ID = 'd0000000-0000-4000-8000-000000000010';
 const DEMO_ORIGIN = { longitude: 3.3515, latitude: 6.6018 };
 const DEMO_DESTINATION = { longitude: 3.3788, latitude: 6.5088 };
 

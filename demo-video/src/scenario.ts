@@ -18,7 +18,7 @@ export const scenario = {
   },
   incidents: [
     {
-      id: '10000000-0000-4000-8000-000000000011',
+      id: 'd0000000-0000-4000-8000-000000000011',
       label: 'Oshodi Interchange',
       type: 'MODERATE_FLOODING',
       severity: 'MODERATE',
@@ -27,7 +27,7 @@ export const scenario = {
       confirmations: 8,
     },
     {
-      id: '10000000-0000-4000-8000-000000000012',
+      id: 'd0000000-0000-4000-8000-000000000012',
       label: 'Ikeja GRA access road',
       type: 'BLOCKED_DRAIN',
       severity: 'MODERATE',
@@ -36,7 +36,7 @@ export const scenario = {
       confirmations: 4,
     },
     {
-      id: '10000000-0000-4000-8000-000000000013',
+      id: 'd0000000-0000-4000-8000-000000000013',
       label: 'Ojota interchange',
       type: 'BLOCKED_ROAD',
       severity: 'HIGH',
@@ -45,7 +45,7 @@ export const scenario = {
       confirmations: 5,
     },
     {
-      id: '10000000-0000-4000-8000-000000000010',
+      id: 'd0000000-0000-4000-8000-000000000010',
       label: 'Flood hazard on the fast Ikeja–Yaba route',
       type: 'SEVERE_FLOODING',
       severity: 'SEVERE',

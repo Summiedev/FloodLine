@@ -3,8 +3,8 @@ import Redis from 'ioredis';
 import { createHash } from 'node:crypto';
 import { redisConnectionFromUrl } from '../src/infrastructure/redis/redis.connection';
 
-const DEMO_HAZARD_ID = '10000000-0000-4000-8000-000000000010';
-const DEMO_WARNING_ID = '10000000-0000-4000-8000-000000000021';
+const DEMO_HAZARD_ID = 'd0000000-0000-4000-8000-000000000010';
+const DEMO_WARNING_ID = 'd0000000-0000-4000-8000-000000000021';
 const DEMO_ORIGIN = { longitude: 3.3515, latitude: 6.6018 };
 const DEMO_DESTINATION = { longitude: 3.3788, latitude: 6.5088 };
 
@@ -24,7 +24,7 @@ type DemoIncident = {
 
 const demoIncidents: DemoIncident[] = [
   {
-    id: '10000000-0000-4000-8000-000000000011',
+    id: 'd0000000-0000-4000-8000-000000000011',
     incidentType: 'MODERATE_FLOODING',
     severity: 'MODERATE',
     longitude: 3.3435,
@@ -37,7 +37,7 @@ const demoIncidents: DemoIncident[] = [
     photoCount: 0,
   },
   {
-    id: '10000000-0000-4000-8000-000000000012',
+    id: 'd0000000-0000-4000-8000-000000000012',
     incidentType: 'BLOCKED_DRAIN',
     severity: 'MODERATE',
     longitude: 3.348,
@@ -50,7 +50,7 @@ const demoIncidents: DemoIncident[] = [
     photoCount: 0,
   },
   {
-    id: '10000000-0000-4000-8000-000000000013',
+    id: 'd0000000-0000-4000-8000-000000000013',
     incidentType: 'BLOCKED_ROAD',
     severity: 'HIGH',
     longitude: 3.394,
